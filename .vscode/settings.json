@@ -1,9 +1,2 @@
-{
-    "editor.codeActionsOnSave": {
-      "source.fixAll.eslint": "explicit"
-    },
-      "eslint.validate": ["javascript", "javascriptreact", "typescript", "typescriptreact"],
-    "liveServer.settings.port": 5502,
-    "typescript.tsdk": "node_modules\\typescript\\lib"
-}
+
   

@@ -12,7 +12,7 @@
   "author": "CraftLinks",
   "license": "ISC",
   "dependencies": {
-    "@webgpu/types": "^0.1.32",
+    "@webgpu/types": "^0.1.40",
     "@types/web": "^0.0.139"
   },
   "devDependencies": {
