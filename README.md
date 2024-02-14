@@ -1,2 +1,2 @@
-# typescript-starter
- My Typescript Template 
+# HexGrid3D
+A 3D Hex Grid with WebGPU 
