@@ -45,13 +45,14 @@ async function main() {
             @builtin(vertex_index) vertexIndex : u32, // each time we call the vertex shader, this will be 0, 1, 2
             @builtin(instance_index) instanceIndex : u32 // each time we call the vertex shader, this will be 0, 1, ... (kNumObjects - 1)
         ) -> VSOutput {
-            
+
+
             let ourStruct = ourStructs[instanceIndex];
     
             var vsOut: VSOutput;
             vsOut.position = vec4f((pos[vertexIndex].position + 0.2) * scale + ourStruct.offset * scale, 0.0, 1.0);
             vsOut.color = ourStruct.color;
-            if (instanceIndex == 4049) {
+            if (instanceIndex == 4) {
                 vsOut.color = vec4f(1, 0, 0, 1);
             }
             return vsOut;
@@ -78,7 +79,7 @@ async function main() {
     });
 
 
-    const kNumObjects = [100,100];
+    const kNumObjects = [3,3];
     const hexSize = 1.0/(Math.max(kNumObjects[0], kNumObjects[1])) ;
  
     const staticUnitSize =
@@ -104,6 +105,19 @@ async function main() {
         size: scaleBufferSize,
         usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
+
+    const neighborLookupBufferSize = 4 * 8; // 6 neighbors + padding to 8 32bit floats(8*4bytes)
+
+    const neighborLookupBuffer = device.createBuffer({
+        label: `neighbor lookup buffer`,
+        size: neighborLookupBufferSize,
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    });
+
+    const neighborhoodLookupValues = new Uint32Array(neighborLookupBufferSize/4);
+    neighborhoodLookupValues.set([-1, kNumObjects[0], kNumObjects[0] + 1, 1, -kNumObjects[0], -kNumObjects[0]-1, 0, 0], 0);
+
+    device.queue.writeBuffer(neighborLookupBuffer, 0, neighborhoodLookupValues);
 
     // offsets to the various uniform values in float32 indices
     const kColorOffset = 0;
@@ -141,9 +155,9 @@ async function main() {
         label: 'bind group for objects',
         layout: pipeline.getBindGroupLayout(0),
         entries: [
-          { binding: 0, resource: { buffer: staticStorageBuffer }},
-          { binding: 1, resource: { buffer: scaleBuffer }},
-          { binding: 2, resource: { buffer: vertexStorageBuffer }},
+            { binding: 0, resource: { buffer: staticStorageBuffer }},
+            { binding: 1, resource: { buffer: scaleBuffer }},
+            { binding: 2, resource: { buffer: vertexStorageBuffer }},
         ],
     });
 
