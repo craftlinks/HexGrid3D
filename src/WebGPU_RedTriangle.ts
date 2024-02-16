@@ -97,7 +97,23 @@ async function main() {
     
         const commandBuffer = encoder.finish();
         device.queue.submit([commandBuffer]);
-    } 
-    render();
+    }
+    
+    //
+    // Create a ResizeObserver and give it a function to call whenever the elements you’ve asked it to observe change their size. 
+    // You then tell it which elements to observe.
+    //
+    const observer = new ResizeObserver(entries => {
+        for (const entry of entries) {
+          const canvas = entry.target;
+          const width = entry.contentBoxSize[0].inlineSize;
+          const height = entry.contentBoxSize[0].blockSize;
+          canvas.width = Math.max(1, Math.min(width, device.limits.maxTextureDimension2D));
+          canvas.height = Math.max(1, Math.min(height, device.limits.maxTextureDimension2D));
+          // re-render
+          render();
+        }
+      });
+      observer.observe(canvas);
 }
 main();
