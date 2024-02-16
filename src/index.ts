@@ -79,7 +79,7 @@ async function main() {
     });
 
 
-    const kNumObjects = [3,3];
+    const kNumObjects = [10,10];
     const hexSize = 1.0/(Math.max(kNumObjects[0], kNumObjects[1])) ;
  
     const staticUnitSize =
@@ -106,18 +106,18 @@ async function main() {
         usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
-    const neighborLookupBufferSize = 4 * 8; // 6 neighbors + padding to 8 32bit floats(8*4bytes)
-
-    const neighborLookupBuffer = device.createBuffer({
-        label: `neighbor lookup buffer`,
-        size: neighborLookupBufferSize,
-        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-    });
-
-    const neighborhoodLookupValues = new Uint32Array(neighborLookupBufferSize/4);
-    neighborhoodLookupValues.set([-1, kNumObjects[0], kNumObjects[0] + 1, 1, -kNumObjects[0], -kNumObjects[0]-1, 0, 0], 0);
-
-    device.queue.writeBuffer(neighborLookupBuffer, 0, neighborhoodLookupValues);
+    const neighborhoodLookupBufferSize = 8 * 4; // 6 neigbors + 2 padding  
+    const neighborhoodLookupValues = new Uint32Array(neighborhoodLookupBufferSize/4);
+    // left, top left, top right, right, bottom right, bottom left, padding, padding:
+    neighborhoodLookupValues.set([-1, kNumObjects[0], kNumObjects[0] + 1, 1, -kNumObjects[0], -kNumObjects[0]-1, 0, 0], 0); 
+    const neighborhood = {
+        left: neighborhoodLookupValues[0],
+        topLeft: neighborhoodLookupValues[1],
+        topRight: neighborhoodLookupValues[2],
+        right: neighborhoodLookupValues[3],
+        bottomRight: neighborhoodLookupValues[4],
+        bottomLeft: neighborhoodLookupValues[5],
+    }
 
     // offsets to the various uniform values in float32 indices
     const kColorOffset = 0;
@@ -280,4 +280,25 @@ const rand = (min, max) => {
         };
   };
 
+
+
+// const hexRing(radius: number): Hex[] {
+//     const results: Hex[] = [];
+//     let hex = this.add(Hex.multiply(hexDirections[4], radius));
+//     for (let i = 0; i < 6; i++) {
+//         for (let j = 0; j < radius; j++) {
+//             results.push(hex);
+//             hex = hex.hexNeighbor(i);
+//         }
+//     }
+//     return results;
+// };
+
+// const hexSpiral(radius: number, include_center: boolean): Hex[] {
+//     const results: Hex[] = include_center ? [this] : [];
+//     for (let k = 1; k <= radius; k++) {
+//         results.push(...this.hexRing(k));
+//     }
+//     return results;
+// };
   
