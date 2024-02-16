@@ -49,9 +49,9 @@ async function main() {
             let ourStruct = ourStructs[instanceIndex];
     
             var vsOut: VSOutput;
-            vsOut.position = vec4f((pos[vertexIndex].position + 0.2) * scale + ourStruct.offset * scale, 0.0, 1.0);
+            vsOut.position = vec4f(pos[vertexIndex].position * scale + ourStruct.offset * scale, 0.0, 1.0);
             vsOut.color = ourStruct.color;
-            if (instanceIndex == 4049) {
+            if (instanceIndex == 0) {
                 vsOut.color = vec4f(1, 0, 0, 1);
             }
             return vsOut;
@@ -78,7 +78,7 @@ async function main() {
     });
 
 
-    const kNumObjects = [100,100];
+    const kNumObjects = [10,10];
     const hexSize = 1.0/(Math.max(kNumObjects[0], kNumObjects[1])) ;
  
     const staticUnitSize =

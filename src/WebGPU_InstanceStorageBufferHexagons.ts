@@ -28,6 +28,10 @@ async function main() {
             offset: vec2f,
         };
 
+        struct OtherStruct{
+            scale: vec2f,
+        };
+
         struct Vertex {
             position: vec2f,
         }
@@ -38,7 +42,7 @@ async function main() {
         }
 
         @group(0) @binding(0) var<storage, read> ourStructs: array<OurStruct>;
-        @group(0) @binding(1) var<uniform> scale: vec2f;
+        @group(0) @binding(1) var<storage, read> otherStructs: array<OtherStruct>;
         @group(0) @binding(2) var<storage, read> pos: array<Vertex>;
 
         @vertex fn vs(
@@ -46,14 +50,13 @@ async function main() {
             @builtin(instance_index) instanceIndex : u32 // each time we call the vertex shader, this will be 0, 1, ... (kNumObjects - 1)
         ) -> VSOutput {
             
+
+            let otherStruct = otherStructs[instanceIndex];
             let ourStruct = ourStructs[instanceIndex];
     
             var vsOut: VSOutput;
-            vsOut.position = vec4f((pos[vertexIndex].position + 0.2) * scale + ourStruct.offset * scale, 0.0, 1.0);
+            vsOut.position = vec4f(pos[vertexIndex].position * otherStruct.scale + ourStruct.offset, 0.0, 1.0);
             vsOut.color = ourStruct.color;
-            if (instanceIndex == 4049) {
-                vsOut.color = vec4f(1, 0, 0, 1);
-            }
             return vsOut;
         }
     
@@ -78,8 +81,8 @@ async function main() {
     });
 
 
-    const kNumObjects = [100,100];
-    const hexSize = 1.0/(Math.max(kNumObjects[0], kNumObjects[1])) ;
+    const kNumObjects = 100;
+    const objectInfos = [];
  
     const staticUnitSize =
         4 * 4 + // color is 4 32bit floats (4bytes each)
@@ -88,8 +91,8 @@ async function main() {
 
     const changingUnitSize =  2 * 4;  // scale is 2 32bit floats (4bytes each)
 
-    const staticStorageBufferSize = kNumObjects[0] * kNumObjects[1] * staticUnitSize;
-    const changingStorageBufferSize = kNumObjects[0] * kNumObjects[1] * changingUnitSize;
+    const staticStorageBufferSize = kNumObjects * staticUnitSize;
+    const changingStorageBufferSize = kNumObjects * changingUnitSize;
 
     const staticStorageBuffer = device.createBuffer({
         label: `static storage buffer for objects`,
@@ -97,36 +100,40 @@ async function main() {
         usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
 
-    const scaleBufferSize = 4 * 2;
-
-    const scaleBuffer = device.createBuffer({
-        label: `scale uniform`,
-        size: scaleBufferSize,
-        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    const changingStorageBuffer = device.createBuffer({
+        label: `changing storage buffer for objects`,
+        size: changingStorageBufferSize,
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
 
     // offsets to the various uniform values in float32 indices
     const kColorOffset = 0;
     const kOffsetOffset = 4;
 
+    const kScaleOffset = 0;
+
     {
         const staticStorageValues = new Float32Array(staticStorageBufferSize / 4);
-        for (let i = 0; i < kNumObjects[0] * kNumObjects[1] ; ++i) {
-            const staticOffset = i * (staticUnitSize / 4);
-            let x = i % kNumObjects[0];
-            let y = Math.floor(i / kNumObjects[0]);
-            y % 2 == 1 ? x : x += 0.5; 
+        for (let i = 0; i < kNumObjects; ++i) {
+          const staticOffset = i * (staticUnitSize / 4);
+     
           // These are only set once so set them now
-          staticStorageValues.set([rand(), 1], staticOffset + kColorOffset);        // set the color
-          staticStorageValues.set([x * Math.sqrt(3) * hexSize, y * 3/2 * hexSize], staticOffset + kOffsetOffset);      // set the offset
+          staticStorageValues.set([rand(), rand(), rand(), 1], staticOffset + kColorOffset);        // set the color
+          staticStorageValues.set([rand(-0.9, 0.9), rand(-0.9, 0.9)], staticOffset + kOffsetOffset);      // set the offset
+     
+          objectInfos.push({
+            scale: rand(0.2, 0.5),
+          });
         }
         device.queue.writeBuffer(staticStorageBuffer, 0, staticStorageValues);
     }
 
+    // a typed array we can use to update the changingStorageBuffer
+    const storageValues = new Float32Array(changingStorageBufferSize / 4);
+
     // setup a storage buffer with vertex data
     const { vertexData, numVertices } = createHexagonVertices({
-        hexSize,
-        center: { x: -1 - hexSize, y: -1 + hexSize },
+        hexSize: 0.1,
     });
 
     const vertexStorageBuffer = device.createBuffer({
@@ -137,12 +144,13 @@ async function main() {
     device.queue.writeBuffer(vertexStorageBuffer, 0, vertexData);
 
 
+
     const bindGroup = device.createBindGroup({
         label: 'bind group for objects',
         layout: pipeline.getBindGroupLayout(0),
         entries: [
           { binding: 0, resource: { buffer: staticStorageBuffer }},
-          { binding: 1, resource: { buffer: scaleBuffer }},
+          { binding: 1, resource: { buffer: changingStorageBuffer }},
           { binding: 2, resource: { buffer: vertexStorageBuffer }},
         ],
     });
@@ -176,15 +184,17 @@ async function main() {
         // Set the uniform values in our JavaScript side Float32Array
         const aspect = canvas.width / canvas.height;
         
-        const scale = 1.0;
-        const scale_values = new Float32Array(2);
-        scale_values.set([scale / aspect, scale], 0);
-        
+        // set the scales for each object
+        objectInfos.forEach(({scale}, ndx) => {
+            const offset = ndx * (changingUnitSize / 4);
+            storageValues.set([scale / aspect, scale], offset + kScaleOffset); // set the scale
+        });
+
         // upload all scales at once
-        device.queue.writeBuffer(scaleBuffer, 0, scale_values);
+        device.queue.writeBuffer(changingStorageBuffer, 0, storageValues);
    
         pass.setBindGroup(0, bindGroup);
-        pass.draw(numVertices, kNumObjects[0] * kNumObjects[1]);  // call our vertex shader for each vertex for each instance
+        pass.draw(numVertices, kNumObjects);  // call our vertex shader for each vertex for each instance
 
         
         pass.end();
@@ -229,7 +239,6 @@ const rand = (min, max) => {
 
   function createHexagonVertices({
   hexSize = 0.1,
-  center = { x: 0, y: 0 },
     } = {}) {  
 
         // 6 triangles per hexagon, 3 verts per tri, 2 values (xy) each.
@@ -250,12 +259,12 @@ const rand = (min, max) => {
         for (let i = 0; i < 6; i++) {
             const vertexIndex = i * 6;
             const corner_index = i * 2;
-            vertexData[vertexIndex + 0] = center.x;
-            vertexData[vertexIndex + 1] = center.y;
-            vertexData[vertexIndex + 2] = center.x + corners[corner_index];
-            vertexData[vertexIndex + 3] = center.y + corners[corner_index + 1];
-            vertexData[vertexIndex + 4] = center.x + corners[(corner_index + 2) % 12];
-            vertexData[vertexIndex + 5] = center.y + corners[(corner_index + 3) % 12];
+            vertexData[vertexIndex + 0] = 0.0;
+            vertexData[vertexIndex + 1] = 0.0;
+            vertexData[vertexIndex + 2] = corners[corner_index];
+            vertexData[vertexIndex + 3] = corners[corner_index + 1];
+            vertexData[vertexIndex + 4] = corners[(corner_index + 2) % 12];
+            vertexData[vertexIndex + 5] = corners[(corner_index + 3) % 12];
         }
 
         console.log(vertexData)
@@ -266,4 +275,51 @@ const rand = (min, max) => {
         };
   };
 
-  
+  function createCircleVertices({
+    radius = 1,
+    numSubdivisions = 48,
+    innerRadius = 0,
+    startAngle = 0,
+    endAngle = Math.PI * 2,
+  } = {}) {
+    // 2 triangles per subdivision, 3 verts per tri, 2 values (xy) each.
+    const numVertices = numSubdivisions * 3 * 2;
+    const vertexData = new Float32Array(numSubdivisions * 2 * 3 * 2);
+   
+    let offset = 0;
+    const addVertex = (x, y) => {
+      vertexData[offset++] = x;
+      vertexData[offset++] = y;
+    };
+   
+    // 2 triangles per subdivision
+    //
+    // 0--1 4
+    // | / /|
+    // |/ / |
+    // 2 3--5
+    for (let i = 0; i < numSubdivisions; ++i) {
+      const angle1 = startAngle + (i + 0) * (endAngle - startAngle) / numSubdivisions;
+      const angle2 = startAngle + (i + 1) * (endAngle - startAngle) / numSubdivisions;
+   
+      const c1 = Math.cos(angle1);
+      const s1 = Math.sin(angle1);
+      const c2 = Math.cos(angle2);
+      const s2 = Math.sin(angle2);
+   
+      // first triangle
+      addVertex(c1 * radius, s1 * radius);
+      addVertex(c2 * radius, s2 * radius);
+      addVertex(c1 * innerRadius, s1 * innerRadius);
+   
+      // second triangle
+      addVertex(c1 * innerRadius, s1 * innerRadius);
+      addVertex(c2 * radius, s2 * radius);
+      addVertex(c2 * innerRadius, s2 * innerRadius);
+    }
+   
+    return {
+      vertexData,
+      numVertices,
+    };
+  }

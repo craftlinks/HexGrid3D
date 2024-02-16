@@ -20,28 +20,44 @@ async function main() {
     });
 
     const module = device.createShaderModule({
-        label: 'our hardcoded red triangle shaders',
+        label: 'our hardcoded rgb triangle shaders',
         code: `
+        
+        struct OurVertexShaderOutput {
+            @builtin(position) position : vec4f, 
+            @location(0) color : vec4f, // interstage variable between vertex and fragment shader
+        };
+        
         @vertex fn vs(
             @builtin(vertex_index) vertexIndex : u32 // each time we call the vertex shader, this will be 0, 1, 2
-        ) -> @builtin(position) vec4f {
-            let pos = array(
-            vec2f( 0.0,  0.5),  // top center
-            vec2f(-0.5, -0.5),  // bottom left
-            vec2f( 0.5, -0.5)   // bottom right
+        ) -> OurVertexShaderOutput {
+                let pos = array(
+                vec2f( 0.0,  0.5),  // top center
+                vec2f(-0.5, -0.5),  // bottom left
+                vec2f( 0.5, -0.5)   // bottom right
             );
-    
-            return vec4f(pos[vertexIndex], 0.0, 1.0);
+
+            var color = array<vec4f, 3>(
+                vec4f(1.0, 0.0, 0.0, 1.0),
+                vec4f(0.0, 1.0, 0.0, 1.0),
+                vec4f(0.0, 0.0, 1.0, 1.0)
+            );
+
+            var vsOutput: OurVertexShaderOutput;
+            vsOutput.position = vec4f(pos[vertexIndex], 0.0, 1.0);
+            vsOutput.color = color[vertexIndex];
+
+            return vsOutput;
         }
     
-        @fragment fn fs() -> @location(0) vec4f {
-            return vec4f(1.0, 0.0, 0.0, 1.0);
+        @fragment fn fs(fsInput: OurVertexShaderOutput) -> @location(0) vec4f {
+            return fsInput.color;
         }
         `,
     });
 
     const pipeline = device.createRenderPipeline({
-        label: 'our hardcoded red triangle pipeline',
+        label: 'our hardcoded rgb triangle pipeline',
         layout: 'auto',
         vertex: {
         module,
@@ -59,7 +75,7 @@ async function main() {
         colorAttachments: [ // array of textures we will render to
         {
             // view: <- to be filled out when we render
-            clearValue: [1, 1, 1, 1],
+            clearValue: [0, 0, 0, 1],
             loadOp: 'clear',
             storeOp: 'store',
         },

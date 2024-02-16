@@ -20,28 +20,35 @@ async function main() {
     });
 
     const module = device.createShaderModule({
-        label: 'our hardcoded red triangle shaders',
+        label: 'our hardcoded checker triangle shaders',
         code: `
+        
         @vertex fn vs(
             @builtin(vertex_index) vertexIndex : u32 // each time we call the vertex shader, this will be 0, 1, 2
         ) -> @builtin(position) vec4f {
-            let pos = array(
-            vec2f( 0.0,  0.5),  // top center
-            vec2f(-0.5, -0.5),  // bottom left
-            vec2f( 0.5, -0.5)   // bottom right
+                let pos = array(
+                vec2f( 0.0,  0.5),  // top center
+                vec2f(-0.5, -0.5),  // bottom left
+                vec2f( 0.5, -0.5)   // bottom right
             );
-    
+
             return vec4f(pos[vertexIndex], 0.0, 1.0);
         }
     
-        @fragment fn fs() -> @location(0) vec4f {
-            return vec4f(1.0, 0.0, 0.0, 1.0);
+        @fragment fn fs(@builtin(position) position: vec4f) -> @location(0) vec4f {
+            let red = vec4f(1, 0, 0, 1);
+            let cyan = vec4f(0, 1, 1, 1);
+    
+            let grid = vec2u(position.xy) / 16; // based on the pixel coordinates of the canvas, not the triangle
+            let checker = (grid.x + grid.y) % 2 == 1;
+    
+            return select(red, cyan, checker);
         }
         `,
     });
 
     const pipeline = device.createRenderPipeline({
-        label: 'our hardcoded red triangle pipeline',
+        label: 'our hardcoded checker triangle pipeline',
         layout: 'auto',
         vertex: {
         module,
@@ -59,7 +66,7 @@ async function main() {
         colorAttachments: [ // array of textures we will render to
         {
             // view: <- to be filled out when we render
-            clearValue: [1, 1, 1, 1],
+            clearValue: [0, 0, 0, 1],
             loadOp: 'clear',
             storeOp: 'store',
         },
