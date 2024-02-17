@@ -20,10 +20,16 @@ async function main() {
     });
 
     const module = device.createShaderModule({
-        label: 'triangle shaders with uniforms',
+        label: 'HexGrid3D shader',
         code: `
 
-        struct OurStruct {
+        struct Global {
+            scale: vec2f,
+            grid_width: f32,
+            grid_height: f32,
+        }
+        
+        struct HexAttributes {
             color: vec4f,
             offset: vec2f,
         };
@@ -37,8 +43,8 @@ async function main() {
             @location(0) color: vec4f,
         }
 
-        @group(0) @binding(0) var<storage, read> ourStructs: array<OurStruct>;
-        @group(0) @binding(1) var<uniform> scale: vec2f;
+        @group(0) @binding(0) var<storage, read> hexes: array<HexAttributes>;
+        @group(0) @binding(1) var<uniform> global: Global;
         @group(0) @binding(2) var<storage, read> pos: array<Vertex>;
 
         @vertex fn vs(
@@ -46,15 +52,33 @@ async function main() {
             @builtin(instance_index) instanceIndex : u32 // each time we call the vertex shader, this will be 0, 1, ... (kNumObjects - 1)
         ) -> VSOutput {
 
+            // let left:i32 = -1;
+            // let up_left:i32 = i32(global.grid_width);
+            // let up_right: i32 = i32(global.grid_width + 1);
+            // let right:i32 = 1;
+            // let down_right: i32 = -global.grid_width;
+            // let down_left = -global.grid_width - 1;
 
-            let ourStruct = ourStructs[instanceIndex];
+            let hex = hexes[instanceIndex];
+            
+            
     
             var vsOut: VSOutput;
-            vsOut.position = vec4f((pos[vertexIndex].position + 0.2) * scale + ourStruct.offset * scale, 0.0, 1.0);
-            vsOut.color = ourStruct.color;
-            if (instanceIndex == 4) {
-                vsOut.color = vec4f(1, 0, 0, 1);
-            }
+            vsOut.position = vec4f((pos[vertexIndex].position + 0.2) * global.scale + hex.offset * global.scale, 0.0, 1.0);
+            vsOut.color = hex.color;
+                let left_hex = hexes[instanceIndex - 1];
+                let up_left_hex = hexes[i32(instanceIndex) + i32(global.grid_width)];
+                let up_right_hex = hexes[i32(instanceIndex) + i32(global.grid_width + 1)];
+                let right_hex = hexes[i32(instanceIndex) + 1];
+                let down_right_hex = hexes[i32(instanceIndex) - i32(global.grid_width)];
+                let down_left_hex = hexes[i32(instanceIndex) - i32(global.grid_width - 1)];
+                let sum = left_hex.color.r + up_left_hex.color.r + up_right_hex.color.r + right_hex.color.r + down_right_hex.color.r + down_left_hex.color.r;
+                if (sum > 3) {
+                    vsOut.color = vec4f(hex.color.r - (0.1 * sum), 0.1,0.2, 1);
+                }
+                else {
+                    vsOut.color = vec4f(hex.color.r + (0.1 * sum), 0.1, 0.3, 1);
+                }
             return vsOut;
         }
     
@@ -65,7 +89,7 @@ async function main() {
     });
 
     const pipeline = device.createRenderPipeline({
-        label: 'instanced storage buffer pipeline',
+        label: 'HexGrid3D pipeline',
         layout: 'auto',
         vertex: {
         module,
@@ -79,63 +103,57 @@ async function main() {
     });
 
 
-    const kNumObjects = [10,10];
-    const hexSize = 1.0/(Math.max(kNumObjects[0], kNumObjects[1])) ;
+    const hexGridDimensions = [10.0,10.0];
+    const hexSize = 1.0/(Math.max(hexGridDimensions[0], hexGridDimensions[1])) ;
  
-    const staticUnitSize =
+    const hexAttributeUnitSize =
         4 * 4 + // color is 4 32bit floats (4bytes each)
         2 * 4 + // offset is 2 32bit floats (4bytes each)
         2 * 4;  // padding is 2 32bit floats (4bytes each)
 
-    const changingUnitSize =  2 * 4;  // scale is 2 32bit floats (4bytes each)
+    const GlobalAttributesUnitSize =  
+    2 * 4 +  // scale is 2 32bit floats (4bytes each)
+    2 * 4;  // grid_width and grid_height are 2 32bit floats (4bytes each)
+    // Padding required?
 
-    const staticStorageBufferSize = kNumObjects[0] * kNumObjects[1] * staticUnitSize;
-    const changingStorageBufferSize = kNumObjects[0] * kNumObjects[1] * changingUnitSize;
+    const hexAttributesStorageBufferSize = hexGridDimensions[0] * hexGridDimensions[1] * hexAttributeUnitSize;
+    const globalAttributesBufferSize = GlobalAttributesUnitSize;
 
-    const staticStorageBuffer = device.createBuffer({
-        label: `static storage buffer for objects`,
-        size: staticStorageBufferSize,
+    const hexAttributesStorageBuffer = device.createBuffer({
+        label: `Hex attributes storage buffer for objects`,
+        size: hexAttributesStorageBufferSize,
         usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
 
-    const scaleBufferSize = 4 * 2;
-
-    const scaleBuffer = device.createBuffer({
-        label: `scale uniform`,
-        size: scaleBufferSize,
+    
+    const globalAttributesBuffer = device.createBuffer({
+        label: `global attributes uniform`,
+        size: globalAttributesBufferSize,
         usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
-
-    const neighborhoodLookupBufferSize = 8 * 4; // 6 neigbors + 2 padding  
-    const neighborhoodLookupValues = new Uint32Array(neighborhoodLookupBufferSize/4);
-    // left, top left, top right, right, bottom right, bottom left, padding, padding:
-    neighborhoodLookupValues.set([-1, kNumObjects[0], kNumObjects[0] + 1, 1, -kNumObjects[0], -kNumObjects[0]-1, 0, 0], 0); 
-    const neighborhood = {
-        left: neighborhoodLookupValues[0],
-        topLeft: neighborhoodLookupValues[1],
-        topRight: neighborhoodLookupValues[2],
-        right: neighborhoodLookupValues[3],
-        bottomRight: neighborhoodLookupValues[4],
-        bottomLeft: neighborhoodLookupValues[5],
-    }
 
     // offsets to the various uniform values in float32 indices
     const kColorOffset = 0;
     const kOffsetOffset = 4;
+    const kScaleOffset = 0;
+    const kGridDimensionsOffset = 2;
+    
 
     {
-        const staticStorageValues = new Float32Array(staticStorageBufferSize / 4);
-        for (let i = 0; i < kNumObjects[0] * kNumObjects[1] ; ++i) {
-            const staticOffset = i * (staticUnitSize / 4);
-            let x = i % kNumObjects[0];
-            let y = Math.floor(i / kNumObjects[0]);
+        const hexAttributesStorageValues = new Float32Array(hexAttributesStorageBufferSize / 4);
+        for (let i = 0; i < hexGridDimensions[0] * hexGridDimensions[1] ; ++i) {
+            const bufferOffset = i * (hexAttributeUnitSize / 4);
+            let x = i % hexGridDimensions[0];
+            let y = Math.floor(i / hexGridDimensions[0]);
             y % 2 == 1 ? x : x += 0.5; 
           // These are only set once so set them now
-          staticStorageValues.set([rand(), 1], staticOffset + kColorOffset);        // set the color
-          staticStorageValues.set([x * Math.sqrt(3) * hexSize, y * 3/2 * hexSize], staticOffset + kOffsetOffset);      // set the offset
+          hexAttributesStorageValues.set([rand(), 1], bufferOffset + kColorOffset);        // set the color
+          hexAttributesStorageValues.set([x * Math.sqrt(3) * hexSize, y * 3/2 * hexSize], bufferOffset + kOffsetOffset);      // set the offset
         }
-        device.queue.writeBuffer(staticStorageBuffer, 0, staticStorageValues);
+        device.queue.writeBuffer(hexAttributesStorageBuffer, 0, hexAttributesStorageValues);
     }
+
+    const globalAttributesValues = new Float32Array(globalAttributesBufferSize / 4);
 
     // setup a storage buffer with vertex data
     const { vertexData, numVertices } = createHexagonVertices({
@@ -155,8 +173,8 @@ async function main() {
         label: 'bind group for objects',
         layout: pipeline.getBindGroupLayout(0),
         entries: [
-            { binding: 0, resource: { buffer: staticStorageBuffer }},
-            { binding: 1, resource: { buffer: scaleBuffer }},
+            { binding: 0, resource: { buffer: hexAttributesStorageBuffer }},
+            { binding: 1, resource: { buffer: globalAttributesBuffer }},
             { binding: 2, resource: { buffer: vertexStorageBuffer }},
         ],
     });
@@ -191,21 +209,21 @@ async function main() {
         const aspect = canvas.width / canvas.height;
         
         const scale = 1.0;
-        const scale_values = new Float32Array(2);
-        scale_values.set([scale / aspect, scale], 0);
-        
-        // upload all scales at once
-        device.queue.writeBuffer(scaleBuffer, 0, scale_values);
+        globalAttributesValues.set([scale / aspect, scale, hexGridDimensions[0], hexGridDimensions[1]], 0);
+        device.queue.writeBuffer(globalAttributesBuffer, 0, globalAttributesValues);
    
         pass.setBindGroup(0, bindGroup);
-        pass.draw(numVertices, kNumObjects[0] * kNumObjects[1]);  // call our vertex shader for each vertex for each instance
+        pass.draw(numVertices, hexGridDimensions[0] * hexGridDimensions[1]);  // call our vertex shader for each vertex for each instance
 
         
         pass.end();
     
         const commandBuffer = encoder.finish();
         device.queue.submit([commandBuffer]);
+
+        requestAnimationFrame(render);
     }
+    render();
     
     //
     // Create a ResizeObserver and give it a function to call whenever the elements you’ve asked it to observe change their size. 
