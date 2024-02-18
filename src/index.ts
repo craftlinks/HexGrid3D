@@ -19,97 +19,63 @@ async function main() {
         format: presentationFormat,
     });
 
-    const module = device.createShaderModule({
-        label: 'HexGrid3D shader',
-        code: `
+    const hexGridDimensions = [10.0,10.0];
+    const hexSize = 1.0/(Math.max(hexGridDimensions[0], hexGridDimensions[1]));
+    const timestep = 4.0;
+    const workgroupSize = 8;
 
-        struct Global {
-            scale: vec2f,
-            grid_width: f32,
-            grid_height: f32,
-        }
-        
-        struct HexAttributes {
-            color: vec4f,
-            offset: vec2f,
-        };
+    // open vertex and fragment shaders as text
+    const vert_hexgrid = await fetch('./shaders/hexgrid3d_vertex.wgsl').then((response) => response.text());
+    const frag_hexgrid = await fetch('./shaders/hexgrid3d_fragment.wgsl').then((response) => response.text());
+    const computeWGSL = await fetch('./shaders/hexgrid3d_compute.wgsl').then((response) => response.text());
 
-        struct Vertex {
-            position: vec2f,
-        }
-
-        struct VSOutput {
-            @builtin(position) position: vec4f,
-            @location(0) color: vec4f,
-        }
-
-        @group(0) @binding(0) var<storage, read> hexes: array<HexAttributes>;
-        @group(0) @binding(1) var<uniform> global: Global;
-        @group(0) @binding(2) var<storage, read> pos: array<Vertex>;
-
-        @vertex fn vs(
-            @builtin(vertex_index) vertexIndex : u32, // each time we call the vertex shader, this will be 0, 1, 2
-            @builtin(instance_index) instanceIndex : u32 // each time we call the vertex shader, this will be 0, 1, ... (kNumObjects - 1)
-        ) -> VSOutput {
-
-            // let left:i32 = -1;
-            // let up_left:i32 = i32(global.grid_width);
-            // let up_right: i32 = i32(global.grid_width + 1);
-            // let right:i32 = 1;
-            // let down_right: i32 = -global.grid_width;
-            // let down_left = -global.grid_width - 1;
-
-            let hex = hexes[instanceIndex];
-            
-            
-    
-            var vsOut: VSOutput;
-            vsOut.position = vec4f((pos[vertexIndex].position + 0.2) * global.scale + hex.offset * global.scale, 0.0, 1.0);
-            vsOut.color = hex.color;
-                let left_hex = hexes[instanceIndex - 1];
-                let up_left_hex = hexes[i32(instanceIndex) + i32(global.grid_width)];
-                let up_right_hex = hexes[i32(instanceIndex) + i32(global.grid_width + 1)];
-                let right_hex = hexes[i32(instanceIndex) + 1];
-                let down_right_hex = hexes[i32(instanceIndex) - i32(global.grid_width)];
-                let down_left_hex = hexes[i32(instanceIndex) - i32(global.grid_width - 1)];
-                let sum = left_hex.color.r + up_left_hex.color.r + up_right_hex.color.r + right_hex.color.r + down_right_hex.color.r + down_left_hex.color.r;
-                if (sum > 3) {
-                    vsOut.color = vec4f(hex.color.r - (0.1 * sum), 0.1,0.2, 1);
-                }
-                else {
-                    vsOut.color = vec4f(hex.color.r + (0.1 * sum), 0.1, 0.3, 1);
-                }
-            return vsOut;
-        }
-    
-        @fragment fn fs(vsOut: VSOutput) -> @location(0) vec4f {
-            return vsOut.color;
-        }
-        `,
+    // create the shaders
+    const vertexShader = device.createShaderModule({
+        label: 'HexGrid3D vertex shader',
+        code: vert_hexgrid,
     });
 
-    const pipeline = device.createRenderPipeline({
+    const fragmentShader = device.createShaderModule({
+        label: 'HexGrid3D fragment shader',
+        code: frag_hexgrid,
+    });
+
+    const compute_shader = device.createShaderModule({
+        label: 'doubling compute module',
+        code: computeWGSL,
+    });
+
+    // create the render pipeline
+    const render_pipeline = device.createRenderPipeline({
         label: 'HexGrid3D pipeline',
         layout: 'auto',
         vertex: {
-        module,
+        module: vertexShader,
         entryPoint: 'vs',
         },
         fragment: {
-        module,
+        module: fragmentShader,
         entryPoint: 'fs',
         targets: [{ format: presentationFormat }],
         },
     });
 
-
-    const hexGridDimensions = [10.0,10.0];
-    const hexSize = 1.0/(Math.max(hexGridDimensions[0], hexGridDimensions[1])) ;
+    const compute_pipeline = device.createComputePipeline({
+        label: 'compute pipeline',
+        layout: 'auto',
+        compute: {
+          module: compute_shader,
+          entryPoint: 'main',
+          constants: {
+            blockSize: workgroupSize,
+          },
+        },
+    });
  
     const hexAttributeUnitSize =
-        4 * 4 + // color is 4 32bit floats (4bytes each)
-        2 * 4 + // offset is 2 32bit floats (4bytes each)
-        2 * 4;  // padding is 2 32bit floats (4bytes each)
+    2 * 4;// offset is 2 32bit floats (4bytes each)
+
+    const colorUnitSize = 4 * 4; // color is 4 32bit floats (4bytes each)
 
     const GlobalAttributesUnitSize =  
     2 * 4 +  // scale is 2 32bit floats (4bytes each)
@@ -117,12 +83,19 @@ async function main() {
     // Padding required?
 
     const hexAttributesStorageBufferSize = hexGridDimensions[0] * hexGridDimensions[1] * hexAttributeUnitSize;
+    const colorsBufferSize = hexGridDimensions[0] * hexGridDimensions[1] * colorUnitSize;
     const globalAttributesBufferSize = GlobalAttributesUnitSize;
 
     const hexAttributesStorageBuffer = device.createBuffer({
         label: `Hex attributes storage buffer for objects`,
         size: hexAttributesStorageBufferSize,
         usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    });
+
+    const colorsBuffer = device.createBuffer({
+        label: `colors storage buffer for objects`,
+        size: colorsBufferSize,
+        usage: GPUBufferUsage.STORAGE,
     });
 
     
@@ -133,8 +106,6 @@ async function main() {
     });
 
     // offsets to the various uniform values in float32 indices
-    const kColorOffset = 0;
-    const kOffsetOffset = 4;
     const kScaleOffset = 0;
     const kGridDimensionsOffset = 2;
     
@@ -147,11 +118,19 @@ async function main() {
             let y = Math.floor(i / hexGridDimensions[0]);
             y % 2 == 1 ? x : x += 0.5; 
           // These are only set once so set them now
-          hexAttributesStorageValues.set([rand(), 1], bufferOffset + kColorOffset);        // set the color
-          hexAttributesStorageValues.set([x * Math.sqrt(3) * hexSize, y * 3/2 * hexSize], bufferOffset + kOffsetOffset);      // set the offset
+          hexAttributesStorageValues.set([x * Math.sqrt(3) * hexSize, y * 3/2 * hexSize], bufferOffset);      // set the offset
         }
         device.queue.writeBuffer(hexAttributesStorageBuffer, 0, hexAttributesStorageValues);
     }
+
+    // {
+    //     const colorsValues = new Float32Array(colorsBufferSize / 4);
+    //     for (let i = 0; i < hexGridDimensions[0] * hexGridDimensions[1]; ++i) {
+    //         const bufferOffset = i * (colorUnitSize / 4);
+    //         colorsValues.set([rand(0, 1), 0.1, 0.3, 1], bufferOffset);
+    //     }
+    //     device.queue.writeBuffer(colorsBuffer, 0, colorsValues);
+    // }
 
     const globalAttributesValues = new Float32Array(globalAttributesBufferSize / 4);
 
@@ -171,11 +150,12 @@ async function main() {
 
     const bindGroup = device.createBindGroup({
         label: 'bind group for objects',
-        layout: pipeline.getBindGroupLayout(0),
+        layout: render_pipeline.getBindGroupLayout(0),
         entries: [
             { binding: 0, resource: { buffer: hexAttributesStorageBuffer }},
-            { binding: 1, resource: { buffer: globalAttributesBuffer }},
-            { binding: 2, resource: { buffer: vertexStorageBuffer }},
+            { binding: 1, resource: { buffer: colorsBuffer }},
+            { binding: 2, resource: { buffer: globalAttributesBuffer }},
+            { binding: 3, resource: { buffer: vertexStorageBuffer }},
         ],
     });
 
@@ -203,7 +183,7 @@ async function main() {
     
         // make a render pass encoder to encode render specific commands
         const pass = encoder.beginRenderPass(renderPassDescriptor);
-        pass.setPipeline(pipeline);
+        pass.setPipeline(render_pipeline);
 
         // Set the uniform values in our JavaScript side Float32Array
         const aspect = canvas.width / canvas.height;
@@ -220,7 +200,6 @@ async function main() {
     
         const commandBuffer = encoder.finish();
         device.queue.submit([commandBuffer]);
-
         requestAnimationFrame(render);
     }
     render();
