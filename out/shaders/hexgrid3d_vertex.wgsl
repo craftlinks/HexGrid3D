@@ -29,19 +29,5 @@ struct VSOutput {
     var vsOut: VSOutput;
     vsOut.position = vec4f((pos[vertexIndex].position + 0.2) * global.scale + hex_offset * global.scale, 0.0, 1.0);
     vsOut.color = colors[instanceIndex];
-        let left_hex = colors[instanceIndex - 1];
-        let up_left_hex = colors[i32(instanceIndex) + i32(global.grid_width)];
-        let up_right_hex = colors[i32(instanceIndex) + i32(global.grid_width + 1)];
-        let right_hex = colors[i32(instanceIndex) + 1];
-        let down_right_hex = colors[i32(instanceIndex) - i32(global.grid_width)];
-        let down_left_hex = colors[i32(instanceIndex) - i32(global.grid_width - 1)];
-        let sum = left_hex.r + up_left_hex.r + up_right_hex.r + right_hex.r + down_right_hex.r + down_left_hex.r;
-        if (sum > 3) {
-            vsOut.color = vec4f(hex_color.r - (0.1 * sum), 0.1,0.2, 1);
-        }
-        else {
-            // colors[instanceIndex] = vec4f(hex_color.r + (0.1 * sum), 0.1, 1.0, 1);
-            vsOut.color = vec4f(hex_color.r + (0.1 * sum), 0.1, 1.0, 1);
-        }
     return vsOut;
 }

@@ -19,7 +19,7 @@ async function main() {
         format: presentationFormat,
     });
 
-    const hexGridDimensions = [10.0,10.0];
+    const hexGridDimensions = [250.0,250.0];
     const hexSize = 1.0/(Math.max(hexGridDimensions[0], hexGridDimensions[1]));
     const timestep = 4.0;
     const workgroupSize = 8;
@@ -27,7 +27,7 @@ async function main() {
     // open vertex and fragment shaders as text
     const vert_hexgrid = await fetch('./shaders/hexgrid3d_vertex.wgsl').then((response) => response.text());
     const frag_hexgrid = await fetch('./shaders/hexgrid3d_fragment.wgsl').then((response) => response.text());
-    const computeWGSL = await fetch('./shaders/hexgrid3d_compute.wgsl').then((response) => response.text());
+    const compute_hexgrid = await fetch('./shaders/hexgrid3d_compute.wgsl').then((response) => response.text());
 
     // create the shaders
     const vertexShader = device.createShaderModule({
@@ -41,8 +41,8 @@ async function main() {
     });
 
     const compute_shader = device.createShaderModule({
-        label: 'doubling compute module',
-        code: computeWGSL,
+        label: 'HexGrid3D compute module',
+        code: compute_hexgrid,
     });
 
     // create the render pipeline
@@ -60,9 +60,30 @@ async function main() {
         },
     });
 
+    const bindGroupLayoutCompute = device.createBindGroupLayout({
+        entries: [
+          {
+            binding: 0,
+            visibility: GPUShaderStage.COMPUTE,
+            buffer: {
+              type: 'uniform',
+            },
+          },
+          {
+            binding: 1,
+            visibility: GPUShaderStage.COMPUTE,
+            buffer: {
+              type: 'storage',
+            },
+          }
+        ],
+    });
+
     const compute_pipeline = device.createComputePipeline({
         label: 'compute pipeline',
-        layout: 'auto',
+        layout: device.createPipelineLayout({
+            bindGroupLayouts: [bindGroupLayoutCompute],
+          }),
         compute: {
           module: compute_shader,
           entryPoint: 'main',
@@ -95,7 +116,7 @@ async function main() {
     const colorsBuffer = device.createBuffer({
         label: `colors storage buffer for objects`,
         size: colorsBufferSize,
-        usage: GPUBufferUsage.STORAGE,
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
 
     
@@ -123,14 +144,14 @@ async function main() {
         device.queue.writeBuffer(hexAttributesStorageBuffer, 0, hexAttributesStorageValues);
     }
 
-    // {
-    //     const colorsValues = new Float32Array(colorsBufferSize / 4);
-    //     for (let i = 0; i < hexGridDimensions[0] * hexGridDimensions[1]; ++i) {
-    //         const bufferOffset = i * (colorUnitSize / 4);
-    //         colorsValues.set([rand(0, 1), 0.1, 0.3, 1], bufferOffset);
-    //     }
-    //     device.queue.writeBuffer(colorsBuffer, 0, colorsValues);
-    // }
+    {
+        const colorsValues = new Float32Array(colorsBufferSize / 4);
+        for (let i = 0; i < hexGridDimensions[0] * hexGridDimensions[1]; ++i) {
+            const bufferOffset = i * (colorUnitSize / 4);
+            colorsValues.set([rand(0, 0.1), rand(0, 0.1), rand(0, 0.1), 1], bufferOffset);
+        }
+        device.queue.writeBuffer(colorsBuffer, 0, colorsValues);
+    }
 
     const globalAttributesValues = new Float32Array(globalAttributesBufferSize / 4);
 
@@ -148,7 +169,7 @@ async function main() {
     device.queue.writeBuffer(vertexStorageBuffer, 0, vertexData);
 
 
-    const bindGroup = device.createBindGroup({
+    const renderBindGroup = device.createBindGroup({
         label: 'bind group for objects',
         layout: render_pipeline.getBindGroupLayout(0),
         entries: [
@@ -156,6 +177,14 @@ async function main() {
             { binding: 1, resource: { buffer: colorsBuffer }},
             { binding: 2, resource: { buffer: globalAttributesBuffer }},
             { binding: 3, resource: { buffer: vertexStorageBuffer }},
+        ],
+    });
+
+    const computeBindGroup = device.createBindGroup({
+        layout: compute_pipeline.getBindGroupLayout(0),
+        entries: [
+            { binding: 0, resource: { buffer: globalAttributesBuffer }},
+            { binding: 1, resource: { buffer: colorsBuffer }},
         ],
     });
 
@@ -180,10 +209,17 @@ async function main() {
     
         // make a command encoder to start encoding commands
         const encoder = device.createCommandEncoder({ label: 'our first triangle encoder' });
-    
+        
+        // Compute pass
+        const computePass = encoder.beginComputePass();
+        computePass.setPipeline(compute_pipeline);
+        computePass.setBindGroup(0, computeBindGroup);
+        computePass.dispatchWorkgroups((hexGridDimensions[0] * hexGridDimensions[1])/ workgroupSize, 1, 1);
+        computePass.end();
+
         // make a render pass encoder to encode render specific commands
-        const pass = encoder.beginRenderPass(renderPassDescriptor);
-        pass.setPipeline(render_pipeline);
+        const renderPass = encoder.beginRenderPass(renderPassDescriptor);
+        renderPass.setPipeline(render_pipeline);
 
         // Set the uniform values in our JavaScript side Float32Array
         const aspect = canvas.width / canvas.height;
@@ -192,11 +228,9 @@ async function main() {
         globalAttributesValues.set([scale / aspect, scale, hexGridDimensions[0], hexGridDimensions[1]], 0);
         device.queue.writeBuffer(globalAttributesBuffer, 0, globalAttributesValues);
    
-        pass.setBindGroup(0, bindGroup);
-        pass.draw(numVertices, hexGridDimensions[0] * hexGridDimensions[1]);  // call our vertex shader for each vertex for each instance
-
-        
-        pass.end();
+        renderPass.setBindGroup(0, renderBindGroup);
+        renderPass.draw(numVertices, hexGridDimensions[0] * hexGridDimensions[1]);  // call our vertex shader for each vertex for each instance
+        renderPass.end();
     
         const commandBuffer = encoder.finish();
         device.queue.submit([commandBuffer]);
