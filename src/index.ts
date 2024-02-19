@@ -19,7 +19,7 @@ async function main() {
         format: presentationFormat,
     });
 
-    const hexGridDimensions = [250.0,250.0];
+    const hexGridDimensions = [500.0,500.0];
     const hexSize = 1.0/(Math.max(hexGridDimensions[0], hexGridDimensions[1]));
     const timestep = 4.0;
     const workgroupSize = 8;
@@ -148,7 +148,7 @@ async function main() {
         const colorsValues = new Float32Array(colorsBufferSize / 4);
         for (let i = 0; i < hexGridDimensions[0] * hexGridDimensions[1]; ++i) {
             const bufferOffset = i * (colorUnitSize / 4);
-            colorsValues.set([rand(0, 0.1), rand(0, 0.1), rand(0, 0.1), 1], bufferOffset);
+            colorsValues.set([rand(0, 0.5), rand(0, 0.5), rand(0, 0.5), 1], bufferOffset);
         }
         device.queue.writeBuffer(colorsBuffer, 0, colorsValues);
     }
