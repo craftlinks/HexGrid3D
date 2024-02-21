@@ -1,7 +1,7 @@
 async function main() {
     
   // Constants
-  const hexGridDimensions = [10.0,10.0];
+  const hexGridDimensions = [64.0,64.0];
   const hexSize = 1.0/(Math.max(hexGridDimensions[0], hexGridDimensions[1]));
   const timestep = 4.0;
   const workgroupSize = 8;
@@ -199,7 +199,7 @@ async function main() {
       const computePass = encoder.beginComputePass();
       computePass.setPipeline(compute_pipeline);
       computePass.setBindGroup(0, computeBindGroup);
-      computePass.dispatchWorkgroups(hexGridDimensions[0] * hexGridDimensions[1]);
+      computePass.dispatchWorkgroups(hexGridDimensions[0], hexGridDimensions[1]);
       computePass.end();
 
       // make a render pass encoder to encode render specific commands
