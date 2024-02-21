@@ -9,8 +9,31 @@ struct Global {
 
 override blockSize = 8;
 
-fn countNeighbors(id: u32) -> f32 {
-    return 0.0;
+fn getNeigbors(id: vec2u) -> array<u32, 6> {
+    let par = parity(id);
+    let neighbors  = array<u32, 6>(
+        i(vec2u(id.x - 1, id.y)),
+        i(vec2u(id.x + 1, id.y)),
+        i(vec2u(id.x - par, id.y + 1)),
+        i(vec2u(id.x + 1 - par, id.y + 1)),
+        i(vec2u(id.x - par, id.y - 1)),
+        i(vec2u(id.x + 1 - par, id.y - 1))
+    );
+    return neighbors;
+}
+
+fn countNeighbors(id: vec2u) -> f32 {
+    let neighbors = getNeigbors(id);
+    var sum = 0.0;
+    for (var i = 0u; i < 6; i = i + 1u) {
+        let index = neighbors[i];
+        
+        if index < u32(global.grid_width * global.grid_height) {
+            let color = colors[index];
+            sum = sum + color.x;
+        }
+    }
+    return sum;
 }
 
 fn i(id: vec2u) -> u32 {
@@ -25,30 +48,17 @@ fn parity(id: vec2u) -> u32 {
 
 @compute @workgroup_size(1) 
 fn main( @builtin(global_invocation_id) id: vec3<u32>) {
-    let sum = countNeighbors(id.x);
-    if id.x == 21 && id.y == 21 {
-        let index = i(id.xy);
-        colors[index] = vec4<f32>(1.0, 0.0, 1.0, 1.0);
-        let par = parity(id.xy);
-        if par == 0 {
-            colors[index] = vec4<f32>(1.0, 0.0, 0.0, 1.0);
-        }
-        else {
-            colors[index] = vec4<f32>(0.0, 1.0, 0.0, 1.0);
-        }
-        let l = i(vec2<u32>(id.x - 1, id.y));
-        let r = i(vec2<u32>(id.x + 1, id.y));
-        let ul = i(vec2<u32>(id.x - par, id.y + 1));
-        let ur = i(vec2<u32>(id.x + 1 - par, id.y + 1));
-        let ll = i(vec2<u32>(id.x - par, id.y - 1));
-        let lr = i(vec2<u32>(id.x + 1 - par, id.y - 1));
-
-        colors[l] = vec4<f32>(1.0 - f32(par), f32(par), 0.0, 1.0);
-        colors[r] = vec4<f32>(1.0 - f32(par), f32(par), 0.0, 1.0);
-        colors[ul] = vec4<f32>(1.0 - f32(par), f32(par), 0.0, 1.0);
-        colors[ur] = vec4<f32>(1.0 - f32(par), f32(par), 0.0, 1.0);
-        colors[ll] = vec4<f32>(1.0 - f32(par), f32(par), 0.0, 1.0);
-        colors[lr] = vec4<f32>(1.0 - f32(par), f32(par), 0.0, 1.0);
-
+    let sum = countNeighbors(id.xy);
+    if sum == 1.0 {
+        colors[i(id.xy)] = vec4<f32>(1.0, 0.0, 0.0, 1.0);
+    }
+    else if sum == 2.0 {
+        colors[i(id.xy)] = vec4<f32>(0.0, 1.0, 0.0, 1.0);
+    }
+    else if sum == 3.0 {
+        colors[i(id.xy)] = vec4<f32>(0.0, 0.0, 1.0, 1.0);
+    }
+    else {
+        colors[i(id.xy)] = vec4<f32>(0.0, 0.0, 0.0, 1.0);
     }
 }

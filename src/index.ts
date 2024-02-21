@@ -185,43 +185,43 @@ async function main() {
   // Values for the global attributes that will need to be set every frame
   const globalAttributesValues = new Float32Array(globalAttributesBufferSize / 4);
   
-  function render() {
-          
-      // Get the current texture from the canvas context and
-      // set it as the texture to render to.
-      renderPassDescriptor.colorAttachments[0].view =
-          context.getCurrentTexture().createView();
-  
-      // make a command encoder to start encoding commands
-      const encoder = device.createCommandEncoder({ label: 'our first triangle encoder' });
-      
-      // Compute pass
-      const computePass = encoder.beginComputePass();
-      computePass.setPipeline(compute_pipeline);
-      computePass.setBindGroup(0, computeBindGroup);
-      computePass.dispatchWorkgroups(hexGridDimensions[0], hexGridDimensions[1]);
-      computePass.end();
+  function render() {  
+        // Get the current texture from the canvas context and
+        // set it as the texture to render to.
+        renderPassDescriptor.colorAttachments[0].view =
+            context.getCurrentTexture().createView();
+    
+        // make a command encoder to start encoding commands
+        const encoder = device.createCommandEncoder({ label: 'our first triangle encoder' });
+        
+        // Compute pass
+        const computePass = encoder.beginComputePass();
+        computePass.setPipeline(compute_pipeline);
+        computePass.setBindGroup(0, computeBindGroup);
+        computePass.dispatchWorkgroups(hexGridDimensions[0], hexGridDimensions[1]);
+        computePass.end();
 
-      // make a render pass encoder to encode render specific commands
-      const renderPass = encoder.beginRenderPass(renderPassDescriptor);
-      renderPass.setPipeline(render_pipeline);
+        // make a render pass encoder to encode render specific commands
+        const renderPass = encoder.beginRenderPass(renderPassDescriptor);
+        renderPass.setPipeline(render_pipeline);
 
-      // Set the uniform values in our JavaScript side Float32Array
-      const aspect = canvas.width / canvas.height;
-      
-      const scale = 1.0;
-      globalAttributesValues.set([scale / aspect, scale, hexGridDimensions[0], hexGridDimensions[1]], 0);
-      device.queue.writeBuffer(globalAttributesBuffer, 0, globalAttributesValues);
-  
-      renderPass.setBindGroup(0, renderBindGroup);
-      renderPass.draw(numVertices, hexGridDimensions[0] * hexGridDimensions[1]);  // call our vertex shader for each vertex for each instance
-      renderPass.end();
-  
-      const commandBuffer = encoder.finish();
-      device.queue.submit([commandBuffer]);
-      // requestAnimationFrame(render);
+        // Set the uniform values in our JavaScript side Float32Array
+        const aspect = canvas.width / canvas.height;
+        
+        const scale = 1.0;
+        globalAttributesValues.set([scale / aspect, scale, hexGridDimensions[0], hexGridDimensions[1]], 0);
+        device.queue.writeBuffer(globalAttributesBuffer, 0, globalAttributesValues);
+    
+        renderPass.setBindGroup(0, renderBindGroup);
+        renderPass.draw(numVertices, hexGridDimensions[0] * hexGridDimensions[1]);  // call our vertex shader for each vertex for each instance
+        renderPass.end();
+    
+        const commandBuffer = encoder.finish();
+        device.queue.submit([commandBuffer]);
+        
+      setTimeout(render, 10);
   }
-  render();
+  render(0);
     
   //
   // Create a ResizeObserver and give it a function to call whenever the elements you’ve asked it to observe change their size. 
