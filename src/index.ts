@@ -1,7 +1,9 @@
 async function main() {
-    
+  
+  
+
   // Constants
-  const hexGridDimensions = [64.0,64.0];
+  const hexGridDimensions = [512.0,512.0];
   const hexSize = 1.0/(Math.max(hexGridDimensions[0], hexGridDimensions[1]));
   const timestep = 4.0;
   const workgroupSize = 8;
@@ -67,8 +69,14 @@ async function main() {
     usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
   });
 
-  const colorsBuffer = device.createBuffer({
-    label: `colors storage buffer for objects`,
+  const colorsBuffer_0 = device.createBuffer({
+    label: `flip colors storage buffer for objects`,
+    size: colorsBufferSize,
+    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+  });
+
+  const colorsBuffer_1 = device.createBuffer({
+    label: `flop colors storage buffer for objects`,
     size: colorsBufferSize,
     usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
   });
@@ -102,11 +110,11 @@ async function main() {
     for (let i = 0; i < hexGridDimensions[0] * hexGridDimensions[1]; ++i) {
         const bufferOffset = i * (colorUnitSize / 4);
         colorsValues.set([0.0, 0.0, 0.0, 1], bufferOffset);
-        if (i  == 55) {
+        if (i  == (hexGridDimensions[0] * hexGridDimensions[1] / 2) + hexGridDimensions[0] / 2) {
             colorsValues.set([1.0, 0.0, 0.0, 1.0], bufferOffset);
         }
     }
-    device.queue.writeBuffer(colorsBuffer, 0, colorsValues);
+    device.queue.writeBuffer(colorsBuffer_0, 0, colorsValues);
   }
 
   // setup a storage buffer with vertex data
@@ -151,22 +159,43 @@ async function main() {
     },
   });
 
-  const renderBindGroup = device.createBindGroup({
-      label: 'bind group for objects',
+  const renderBindGroup_0 = device.createBindGroup({
+      label: 'flip bind group for objects',
       layout: render_pipeline.getBindGroupLayout(0),
       entries: [
           { binding: 0, resource: { buffer: hexAttributesStorageBuffer }},
-          { binding: 1, resource: { buffer: colorsBuffer }},
+          { binding: 1, resource: { buffer: colorsBuffer_0 }},
           { binding: 2, resource: { buffer: globalAttributesBuffer }},
           { binding: 3, resource: { buffer: vertexStorageBuffer }},
       ],
   });
 
-  const computeBindGroup = device.createBindGroup({
+  const renderBindGroup_1 = device.createBindGroup({
+    label: 'flop bind group for objects',
+    layout: render_pipeline.getBindGroupLayout(0),
+    entries: [
+        { binding: 0, resource: { buffer: hexAttributesStorageBuffer }},
+        { binding: 1, resource: { buffer: colorsBuffer_1 }},
+        { binding: 2, resource: { buffer: globalAttributesBuffer }},
+        { binding: 3, resource: { buffer: vertexStorageBuffer }},
+    ],
+});
+
+  const computeBindGroup_0 = device.createBindGroup({
       layout: compute_pipeline.getBindGroupLayout(0),
       entries: [
           { binding: 0, resource: { buffer: globalAttributesBuffer }},
-          { binding: 1, resource: { buffer: colorsBuffer }},
+          { binding: 1, resource: { buffer: colorsBuffer_0 }},
+          { binding: 2, resource: { buffer: colorsBuffer_1 }},
+      ],
+  });
+
+  const computeBindGroup_1 = device.createBindGroup({
+      layout: compute_pipeline.getBindGroupLayout(0),
+      entries: [
+          { binding: 0, resource: { buffer: globalAttributesBuffer }},
+          { binding: 1, resource: { buffer: colorsBuffer_1 }},
+          { binding: 2, resource: { buffer: colorsBuffer_0 }},
       ],
   });
 
@@ -184,61 +213,51 @@ async function main() {
 
   // Values for the global attributes that will need to be set every frame
   const globalAttributesValues = new Float32Array(globalAttributesBufferSize / 4);
+  function render(looptime: number) {  
+      var lt = looptime;
+      canvas.width = Math.max(1, device.limits.maxTextureDimension2D);
+      canvas.height = Math.max(1, device.limits.maxTextureDimension2D);
+      
+      console.log(`loop_start: ${looptime}`);
+      // Get the current texture from the canvas context and
+      // set it as the texture to render to.
+      renderPassDescriptor.colorAttachments[0].view =
+          context.getCurrentTexture().createView();
   
-  function render() {  
-        // Get the current texture from the canvas context and
-        // set it as the texture to render to.
-        renderPassDescriptor.colorAttachments[0].view =
-            context.getCurrentTexture().createView();
-    
-        // make a command encoder to start encoding commands
-        const encoder = device.createCommandEncoder({ label: 'our first triangle encoder' });
-        
-        // Compute pass
-        const computePass = encoder.beginComputePass();
-        computePass.setPipeline(compute_pipeline);
-        computePass.setBindGroup(0, computeBindGroup);
-        computePass.dispatchWorkgroups(hexGridDimensions[0], hexGridDimensions[1]);
-        computePass.end();
+      // make a command encoder to start encoding commands
+      const encoder = device.createCommandEncoder({ label: 'our first triangle encoder' });
+      
+      // Compute pass
+      const computePass = encoder.beginComputePass();
+      computePass.setPipeline(compute_pipeline);
+      computePass.setBindGroup(0, looptime? computeBindGroup_0: computeBindGroup_1);
+      computePass.dispatchWorkgroups(hexGridDimensions[0], hexGridDimensions[1]);
+      computePass.end();
 
-        // make a render pass encoder to encode render specific commands
-        const renderPass = encoder.beginRenderPass(renderPassDescriptor);
-        renderPass.setPipeline(render_pipeline);
+      // make a render pass encoder to encode render specific commands
+      const renderPass = encoder.beginRenderPass(renderPassDescriptor);
+      renderPass.setPipeline(render_pipeline);
 
-        // Set the uniform values in our JavaScript side Float32Array
-        const aspect = canvas.width / canvas.height;
-        
-        const scale = 1.0;
-        globalAttributesValues.set([scale / aspect, scale, hexGridDimensions[0], hexGridDimensions[1]], 0);
-        device.queue.writeBuffer(globalAttributesBuffer, 0, globalAttributesValues);
-    
-        renderPass.setBindGroup(0, renderBindGroup);
-        renderPass.draw(numVertices, hexGridDimensions[0] * hexGridDimensions[1]);  // call our vertex shader for each vertex for each instance
-        renderPass.end();
-    
-        const commandBuffer = encoder.finish();
-        device.queue.submit([commandBuffer]);
-        
-      setTimeout(render, 10);
+      // Set the uniform values in our JavaScript side Float32Array
+      const aspect = canvas.width / canvas.height;
+      
+      const scale = 1.0;
+      globalAttributesValues.set([scale / aspect, scale, hexGridDimensions[0], hexGridDimensions[1]], 0);
+      device.queue.writeBuffer(globalAttributesBuffer, 0, globalAttributesValues);
+  
+      renderPass.setBindGroup(0, looptime? renderBindGroup_0 : renderBindGroup_1);
+      renderPass.draw(numVertices, hexGridDimensions[0] * hexGridDimensions[1]);  // call our vertex shader for each vertex for each instance
+      renderPass.end();
+  
+      const commandBuffer = encoder.finish();
+      device.queue.submit([commandBuffer]);
+      lt = 1 - lt;
+      setTimeout(() => {
+        render(lt)
+      }, 250);
   }
-  render(0);
-    
-  //
-  // Create a ResizeObserver and give it a function to call whenever the elements you’ve asked it to observe change their size. 
-  // You then tell it which elements to observe.
-  //
-  const observer = new ResizeObserver(entries => {
-      for (const entry of entries) {
-        const canvas = entry.target;
-        const width = entry.contentBoxSize[0].inlineSize;
-        const height = entry.contentBoxSize[0].blockSize;
-        canvas.width = Math.max(1, Math.min(width, device.limits.maxTextureDimension2D));
-        canvas.height = Math.max(1, Math.min(height, device.limits.maxTextureDimension2D));
-        // re-render
-        render();
-      }
-  });
-  observer.observe(canvas);
+  render(1);
+
 }
 main();
 

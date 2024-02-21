@@ -5,7 +5,8 @@ struct Global {
 };
 
 @binding(0) @group(0) var<uniform> global: Global;
-@binding(1) @group(0) var<storage, read_write> colors: array<vec4<f32>>; 
+@binding(1) @group(0) var<storage, read> current_colors: array<vec4<f32>>;
+@binding(2) @group(0) var<storage, read_write> next_colors: array<vec4<f32>>; 
 
 override blockSize = 8;
 
@@ -29,7 +30,7 @@ fn countNeighbors(id: vec2u) -> f32 {
         let index = neighbors[i];
         
         if index < u32(global.grid_width * global.grid_height) {
-            let color = colors[index];
+            let color = current_colors[index];
             sum = sum + color.x;
         }
     }
@@ -50,15 +51,15 @@ fn parity(id: vec2u) -> u32 {
 fn main( @builtin(global_invocation_id) id: vec3<u32>) {
     let sum = countNeighbors(id.xy);
     if sum == 1.0 {
-        colors[i(id.xy)] = vec4<f32>(1.0, 0.0, 0.0, 1.0);
+        next_colors[i(id.xy)] = vec4<f32>(1.0, 0.0, 0.0, 1.0);
     }
     else if sum == 2.0 {
-        colors[i(id.xy)] = vec4<f32>(0.0, 1.0, 0.0, 1.0);
+        next_colors[i(id.xy)] = vec4<f32>(0.0, 1.0, 0.0, 1.0);
     }
     else if sum == 3.0 {
-        colors[i(id.xy)] = vec4<f32>(0.0, 0.0, 1.0, 1.0);
+        next_colors[i(id.xy)] = vec4<f32>(0.0, 0.0, 1.0, 1.0);
     }
     else {
-        colors[i(id.xy)] = vec4<f32>(0.0, 0.0, 0.0, 1.0);
+        next_colors[i(id.xy)] = vec4<f32>(0.0, 0.0, 0.0, 1.0);
     }
 }
