@@ -254,7 +254,7 @@ async function main() {
       lt = 1 - lt;
       setTimeout(() => {
         render(lt)
-      }, 250);
+      }, 100);
   }
   render(1);
 
