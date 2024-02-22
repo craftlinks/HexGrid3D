@@ -51,7 +51,7 @@ fn parity(id: vec2u) -> u32 {
     return id.y & 1;
 }
 
-@compute @workgroup_size(1) 
+@compute @workgroup_size(16,16) 
 fn main( @builtin(global_invocation_id) id: vec3<u32>) {
     let sum = countNeighbors(id.xy);
     zero(sum, id.xy);

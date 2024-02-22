@@ -231,7 +231,7 @@ async function main() {
       const computePass = encoder.beginComputePass();
       computePass.setPipeline(compute_pipeline);
       computePass.setBindGroup(0, looptime? computeBindGroup_0: computeBindGroup_1);
-      computePass.dispatchWorkgroups(hexGridDimensions[0], hexGridDimensions[1]);
+      computePass.dispatchWorkgroups(hexGridDimensions[0]/4, hexGridDimensions[1]/4);
       computePass.end();
 
       // make a render pass encoder to encode render specific commands
@@ -254,7 +254,7 @@ async function main() {
       lt = 1 - lt;
       setTimeout(() => {
         render(lt)
-      }, 10);
+      },5);
   }
   render(1);
 
