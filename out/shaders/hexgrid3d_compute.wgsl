@@ -54,24 +54,29 @@ fn parity(id: vec2u) -> u32 {
 @compute @workgroup_size(1) 
 fn main( @builtin(global_invocation_id) id: vec3<u32>) {
     let sum = countNeighbors(id.xy);
-    if sum[0] == 1.0 {
+    zero(sum, id.xy);
+    
+}
+
+fn zero(sum: array<f32,3>, id: vec2u) {
+    if sum[0] + sum[1] + sum[2] == 1.0 {
+        next_colors[i(id.xy)] = vec4<f32>(1.0, 0.0, 0.0, 1.0);
+    }
+    else if sum[0] + sum[1] + sum[2] == 2.0 {
         next_colors[i(id.xy)] = vec4<f32>(0.0, 1.0, 0.0, 1.0);
     }
-    else if sum[1] == 2.0 {
-        next_colors[i(id.xy)] = vec4<f32>(0.0, 0.0, 1.0, 1.0);
+    else if sum[0] + sum[1] + sum[2] == 3.0 {
+       next_colors[i(id.xy)] = vec4<f32>(0.0, 0.0, 1.0, 1.0);
     }
-    else if sum[2] == 3.0 {
-       next_colors[i(id.xy)] = vec4<f32>(1.0, 0.0, 0.0, 1.0);
-    }
-    else if sum[0] == 4.0 {
-        next_colors[i(id.xy)] = vec4<f32>(0.0, 1.0, 1.0, 1.0);
-    }
-    else if sum[1] == 5.0 {
-        next_colors[i(id.xy)] = vec4<f32>(1.0, 0.0, 1.0, 1.0);
-    }
-    else if sum[2] == 6.0 {
-       next_colors[i(id.xy)] = vec4<f32>(1.0, 1.0, 0.0, 1.0);
-    }
+    // else if sum[0] + sum[1] + sum[2] == 4.0 {
+    //     next_colors[i(id.xy)] = vec4<f32>(1.0, 0.0, 0.0, 1.0);
+    // }
+    // else if sum[0] + sum[1] + sum[2] == 5.0 {
+    //     next_colors[i(id.xy)] = vec4<f32>(1.0, 1.0, 1.0, 1.0);
+    // }
+    // else if sum[0] + sum[1] + sum[2] == 6.0 {
+    //    next_colors[i(id.xy)] = vec4<f32>(1.0, 1.0, 1.0, 1.0);
+    // }
     else {
         next_colors[i(id.xy)] = vec4<f32>(0.0, 0.0, 0.0, 1.0);
     }
