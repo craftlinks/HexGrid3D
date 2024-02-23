@@ -112,8 +112,8 @@ async function main() {
         colorsValues.set([0.0, 0.0, 0.0, 1], bufferOffset);
         let y = Math.floor(i / hexGridDimensions[0]);
         let x = i % hexGridDimensions[0]; 
-        // colorsValues.set([(x^y)%6==0, 0.0, 0.0, 1.0], bufferOffset);
-        if (rand(1) > 0.99){
+        //colorsValues.set([(x^y +1)%12==0, 0.0, 0.0, 1.0], bufferOffset);
+        if (rand(1) > 0.99999){
           colorsValues.set([1.0, rand (1.0), rand (0.75), 1.0], bufferOffset);
         }
         // if (i  == hexGridDimensions[0] * hexGridDimensions[1] / 2 + hexGridDimensions[0] / 2) {
@@ -260,7 +260,7 @@ async function main() {
       lt = 1 - lt;
       setTimeout(() => {
         render(lt)
-      },100);
+      },70);
   }
   render(1);
 

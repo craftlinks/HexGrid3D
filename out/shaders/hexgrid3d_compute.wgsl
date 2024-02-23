@@ -118,18 +118,18 @@ fn parity(id: vec2u) -> u32 {
 
 @compute @workgroup_size(16,16) 
 fn main( @builtin(global_invocation_id) id: vec3<u32>) {
-    let sum = countNeighbors(id.xy);
+    // let sum = countNeighbors(id.xy);
     // zero(sum, id.xy);
     // if (id.x == u32(global.grid_width)/2 && id.y == u32(global.grid_height)/2) {
-        let s1 = spiral(id.xy, 5, 10) * -0.24;
-        let s2 = spiral(id.xy, 1, 4);
-        if s1 + s2 > 0.0 {
+        let s1 = spiral(id.xy, 5, 10) * -0.21; // sum of the colors of the outer ring * w2
+        let s2 = spiral(id.xy, 1, 4); // sum of the colors of the inner ring * w1
+        if s1 + s2 > 0.0 { // if the sum of the colors of the inner and outer ring is greater than 0: pigmemtation
             next_colors[index(id.xy)] = vec4<f32>(1.0, 1.0, 1.0, 1.0);
         }
-        else if (s1 + s2 < 0.0) {
+        else if (s1 + s2 < 0.0) { // if the sum of the colors of the inner and outer ring is less than 0: no pigmentation
             next_colors[index(id.xy)] = vec4<f32>(0.0, 0.0, 0.0, 1.0);
         }
-        else {
+        else { // if the sum of the colors of the inner and outer ring is equal to 0: no change
             next_colors[index(id.xy)] = current_colors[index(id.xy)];
         }
     //}
