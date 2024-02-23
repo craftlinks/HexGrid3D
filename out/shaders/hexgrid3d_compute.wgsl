@@ -47,10 +47,28 @@ fn ring(id: vec2u, radius: u32)  {
         }
     }
 }
-
+// spiral should call `fn ring` for each radius.
+// But my browser crashes when I do that.
+// So I just put the code of ring inside spiral.
 fn spiral(id: vec2u, radius: u32)  {
-    for (var i = 0u; i < radius; i = i + 1u) {
-        ring(id, i);
+    for (var i = 1u; i <= radius; i = i + 1u) {
+        var x = id.x;
+        var y = id.y;
+        //  Move radius times down left
+        let _radius = i;
+        for (var j = 1u; j <= _radius; j = j + 1u) {
+            let par = parity(vec2u(x, y)); 
+            x = x - par;
+            y = y - 1u;
+        }
+        var id_ = vec2u(x, y);
+        // Ring
+        for (var k = 0u; k < 6; k = k + 1u) {
+            for (var l = 1u; l <= _radius; l = l + 1u) {
+                next_colors[index(vec2u(id_))] = vec4<f32>(1.0/f32(_radius), 0.0, 1.0, 1.0);
+                id_ = neighbor(id_, directions[k]);
+            }
+        }
     }
 }
 
@@ -100,7 +118,7 @@ fn main( @builtin(global_invocation_id) id: vec3<u32>) {
     let sum = countNeighbors(id.xy);
     // zero(sum, id.xy);
     if (id.x == u32(global.grid_width)/2 && id.y == u32(global.grid_height)/2) {
-        ring(id.xy, 1);
+        spiral(id.xy, 3);
     }
     
     
