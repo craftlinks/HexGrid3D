@@ -59,15 +59,15 @@ fn main( @builtin(global_invocation_id) id: vec3<u32>) {
 }
 
 fn zero(sum: array<f32,3>, id: vec2u) {
-    if sum[0] + sum[1] + sum[2] == 1.0 {
-        next_colors[i(id.xy)] = vec4<f32>(1.0, 0.0, 0.0, 1.0);
+    if sum[0] + sum[1] + sum[2] < 3.8 && sum[0] + sum[1] + sum[2] > 2.0 {
+        next_colors[i(id.xy)] = vec4<f32>(sum[0]/1.85, sum[1]/1.85, sum[2]/1.85, 1.0);
     }
-    else if sum[0] + sum[1] + sum[2] == 2.0 {
-        next_colors[i(id.xy)] = vec4<f32>(0.0, 1.0, 0.0, 1.0);
-    }
-    else if sum[0] + sum[1] + sum[2] == 3.0 {
-       next_colors[i(id.xy)] = vec4<f32>(0.0, 0.0, 1.0, 1.0);
-    }
+    // else if sum[0] + sum[1] + sum[2] > 3.0 && sum[0] + sum[1] + sum[2] < 6.0{
+    //     next_colors[i(id.xy)] = vec4<f32>(0.5, 1.0, 0.5, 1.0);
+    // }
+    // else if sum[0] + sum[1] + sum[2] == 6.0 {
+    //    next_colors[i(id.xy)] = vec4<f32>(0.0, 0.0, 1.0, 1.0);
+    // }
     // else if sum[0] + sum[1] + sum[2] == 4.0 {
     //     next_colors[i(id.xy)] = vec4<f32>(1.0, 0.0, 0.0, 1.0);
     // }

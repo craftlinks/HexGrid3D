@@ -110,10 +110,14 @@ async function main() {
     for (let i = 0; i < hexGridDimensions[0] * hexGridDimensions[1]; ++i) {
         const bufferOffset = i * (colorUnitSize / 4);
         colorsValues.set([0.0, 0.0, 0.0, 1], bufferOffset);
-        if (i  == (hexGridDimensions[0] * hexGridDimensions[1] / 2) + hexGridDimensions[0] / 2) {
-            colorsValues.set([1.0, 0.0, 0.0, 1.0], bufferOffset);
+        let y = Math.floor(i / hexGridDimensions[0]);
+        let x = i % hexGridDimensions[0]; 
+        // colorsValues.set([(x^y)%6==0, 0.0, 0.0, 1.0], bufferOffset);
+        if (rand(1) > 0.99){
+          colorsValues.set([rand(0.5), rand (1.0), rand (0.75), 1.0], bufferOffset);
         }
-    }
+      }
+        
     device.queue.writeBuffer(colorsBuffer_0, 0, colorsValues);
   }
 
@@ -218,7 +222,6 @@ async function main() {
       canvas.width = Math.max(1, device.limits.maxTextureDimension2D);
       canvas.height = Math.max(1, device.limits.maxTextureDimension2D);
       
-      console.log(`loop_start: ${looptime}`);
       // Get the current texture from the canvas context and
       // set it as the texture to render to.
       renderPassDescriptor.colorAttachments[0].view =
@@ -254,7 +257,7 @@ async function main() {
       lt = 1 - lt;
       setTimeout(() => {
         render(lt)
-      },10);
+      },50);
   }
   render(1);
 
