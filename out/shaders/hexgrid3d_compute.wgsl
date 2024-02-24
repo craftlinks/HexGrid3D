@@ -50,8 +50,8 @@ fn ring(id: vec2u, radius: u32)  {
 // spiral should call `fn ring` for each radius.
 // But my browser crashes when I do that.
 // So I just put the code of ring inside spiral.
-fn spiral(id: vec2u, i_radius: u32, o_radius: u32) -> f32 {
-    var sum = 0.0;
+fn spiral(id: vec2u, i_radius: u32, o_radius: u32) -> vec3<f32> {
+    var sum = vec3f(0.0, 0.0, 0.0);
     for (var i = i_radius; i <= o_radius; i = i + 1u) {
         var x = id.x;
         var y = id.y;
@@ -67,7 +67,7 @@ fn spiral(id: vec2u, i_radius: u32, o_radius: u32) -> f32 {
         for (var k = 0u; k < 6; k = k + 1u) {
             for (var l = 1u; l <= _radius; l = l + 1u) {
                 // next_colors[index(vec2u(id_))] = vec4<f32>(1.0/(0.5*f32(_radius)), 0.0, 0.5, 1.0);
-                sum = sum + current_colors[index(vec2u(id_))].x;
+                sum = sum + current_colors[index(vec2u(id_))].xyz;
                 id_ = neighbor(id_, directions[k]);
             }
         }
@@ -121,17 +121,20 @@ fn main( @builtin(global_invocation_id) id: vec3<u32>) {
     // let sum = countNeighbors(id.xy);
     // zero(sum, id.xy);
     // if (id.x == u32(global.grid_width)/2 && id.y == u32(global.grid_height)/2) {
-        let s1 = spiral(id.xy, 5, 10) * -0.21; // sum of the colors of the outer ring * w2
-        let s2 = spiral(id.xy, 1, 4); // sum of the colors of the inner ring * w1
-        if s1 + s2 > 0.0 { // if the sum of the colors of the inner and outer ring is greater than 0: pigmemtation
-            next_colors[index(id.xy)] = vec4<f32>(1.0, 1.0, 1.0, 1.0);
+        let s1 = spiral(id.xy, 3, 5) * -0.9; // sum of the colors of the outer ring * w2
+        let s2 = spiral(id.xy, 1, 2); // sum of the colors of the inner ring * w1
+         // if the sum of the colors of the inner and outer ring is greater than 0: pigmemtation
+        let cc = current_colors[index(id.xy)];
+        if (s1.r + s2.r > 0.0 && s1.r + s2.r < 1.0 && s1.g + s2.g > 0.0 && s1.g + s2.g < 1.0 && s1.b + s2.b > 0.0 && s1.b + s2.b < 1.0) {
+            next_colors[index(id.xy)] = vec4<f32>(min(((s1.r + s2.r) * 0.5 ),1.0), min(((s1.g + s2.g) * 0.5), 1.0), min(((s1.b + s2.b)  * 0.5), 1.0), 1.0);
         }
-        else if (s1 + s2 < 0.0) { // if the sum of the colors of the inner and outer ring is less than 0: no pigmentation
+        else {
             next_colors[index(id.xy)] = vec4<f32>(0.0, 0.0, 0.0, 1.0);
         }
-        else { // if the sum of the colors of the inner and outer ring is equal to 0: no change
-            next_colors[index(id.xy)] = current_colors[index(id.xy)];
-        }
+        //next_colors[index(id.xy)] = vec4<f32>(((s1.r + s2.r) ), ((s1.g + s2.g)), ((s1.b + s2.b)), 1.0);
+        // else { // if the sum of the colors of the inner and outer ring is equal to 0: no change
+        //     next_colors[index(id.xy)] = current_colors[index(id.xy)];
+        // }
     //}
     
     
