@@ -3,7 +3,7 @@ async function main() {
 
 
   // Constants
-  const hexGridDimensions = [256.0, 256.0];
+  const hexGridDimensions = [512.0, 512.0];
   const hexSize = 1.0 / (Math.max(hexGridDimensions[0], hexGridDimensions[1]));
   const timestep = 4.0;
   const workgroupSize = 8;
