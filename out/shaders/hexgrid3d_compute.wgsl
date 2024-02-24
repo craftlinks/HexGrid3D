@@ -121,7 +121,7 @@ fn main( @builtin(global_invocation_id) id: vec3<u32>) {
     // let sum = countNeighbors(id.xy);
     // zero(sum, id.xy);
     // if (id.x == u32(global.grid_width)/2 && id.y == u32(global.grid_height)/2) {
-        let s1 = spiral(id.xy, 2, 2) * -1.0; // sum of the colors of the outer ring * w2
+        let s1 = spiral(id.xy, 3,5 ) * -0.33; // sum of the colors of the outer ring * w2
         let s2 = spiral(id.xy, 1, 1); // sum of the colors of the inner ring * w1
          // if the sum of the colors of the inner and outer ring is greater than 0: pigmemtation
         let cc = current_colors[index(id.xy)];

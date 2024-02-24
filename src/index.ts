@@ -3,7 +3,7 @@ async function main() {
 
 
   // Constants
-  const hexGridDimensions = [512.0, 512.0];
+  const hexGridDimensions = [100.0, 100.0];
   const hexSize = 1.0 / (Math.max(hexGridDimensions[0], hexGridDimensions[1]));
   const timestep = 4.0;
   const workgroupSize = 8;
@@ -112,9 +112,9 @@ async function main() {
       colorsValues.set([0.0, 0.0, 0.0, 1], bufferOffset);
       let y = Math.floor(i / hexGridDimensions[0]);
       let x = i % hexGridDimensions[0];
-      //colorsValues.set([(x^y +1)%12==0, 0.0, 0.0, 1.0], bufferOffset);
-      if (rand(1) > 0.999) {
-        colorsValues.set([rand(0.3), rand(0.3), rand(0.3), 1.0], bufferOffset);
+      //colorsValues.set([(x ^ y + 1) % 4 == 0, 0.0, 0.0, 1.0], bufferOffset);
+      if (rand(1) > 0.99) {
+        colorsValues.set([rand(0.5), rand(0.5), rand(0.5), 1.0], bufferOffset);
       }
       // if (i  == hexGridDimensions[0] * hexGridDimensions[1] / 2 + hexGridDimensions[0] / 2) {
       //   colorsValues.set([1.0, 1.0, 1.0, 1.0], bufferOffset);
