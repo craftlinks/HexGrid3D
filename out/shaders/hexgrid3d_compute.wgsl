@@ -6,7 +6,9 @@ struct Global {
 
 @binding(0) @group(0) var<uniform> global: Global;
 @binding(1) @group(0) var<storage, read> current_colors: array<vec4<f32>>;
-@binding(2) @group(0) var<storage, read_write> next_colors: array<vec4<f32>>; 
+@binding(2) @group(0) var<storage, read_write> next_colors: array<vec4<f32>>;
+@binding(3) @group(0) var<storage, read_write> current_state: array<array<atomic<u32>, 24>>; // Histogram with 24 bins of u32 numbers
+@binding(4) @group(0) var<storage, read_write> next_state: array<array<atomic<u32>, 24>>; // Histogram with 24 bins of u32 numbers
 
 override blockSize = 8;
 
@@ -28,7 +30,6 @@ fn neighbor(id: vec2u, dir: vec2i) -> vec2u {
         return vec2u(u32(i32(id.x) + dir.x - i32(par)), u32(i32(id.y) + dir.y));
     }  
 }
-
 
 fn ring(id: vec2u, radius: u32)  {
     var x = id.x;
@@ -116,50 +117,9 @@ fn parity(id: vec2u) -> u32 {
     return id.y & 1;
 }
 
-@compute @workgroup_size(8,8) 
+@compute @workgroup_size(1) 
 fn main( @builtin(global_invocation_id) id: vec3<u32>) {
-    // let sum = countNeighbors(id.xy);
-    // zero(sum, id.xy);
-    // if (id.x == u32(global.grid_width)/2 && id.y == u32(global.grid_height)/2) {
-        let s1 = spiral(id.xy, 4,5 ) * -1.1; // sum of the colors of the outer ring * w2
-        let s2 = spiral(id.xy, 2, 2); // sum of the colors of the inner ring * w1
-         // if the sum of the colors of the inner and outer ring is greater than 0: pigmemtation
-        let cc = current_colors[index(id.xy)];
-        if (s1.r + s2.r > 0.0 && s1.r + s2.r < 1.0 && s1.g + s2.g > 0.0 && s1.g + s2.g < 1.0 && s1.b + s2.b > 0.0 && s1.b + s2.b < 1.0) {
-            next_colors[index(id.xy)] = vec4<f32>(min(((s1.r + s2.r) * 0.5 ),1.0), min(((s1.g + s2.g) * 0.5), 1.0), min(((s1.b + s2.b)  * 0.5), 1.0), 1.0);
-        }
-        else {
-            next_colors[index(id.xy)] = vec4<f32>(0.0, 0.0, 0.0, 1.0);
-        }
-        //next_colors[index(id.xy)] = vec4<f32>(((s1.r + s2.r) ), ((s1.g + s2.g)), ((s1.b + s2.b)), 1.0);
-        // else { // if the sum of the colors of the inner and outer ring is equal to 0: no change
-        //     next_colors[index(id.xy)] = current_colors[index(id.xy)];
-        // }
-    //}
-    
-    
-}
-
-fn zero(sum: array<f32,3>, id: vec2u) {
-    if sum[0] + sum[1] + sum[2] < 3.8 && sum[0] + sum[1] + sum[2] > 2.0 {
-        next_colors[index(id.xy)] = vec4<f32>(sum[0]/1.85, sum[1]/1.85, sum[2]/1.85, 1.0);
-    }
-    // else if sum[0] + sum[1] + sum[2] > 3.0 && sum[0] + sum[1] + sum[2] < 6.0{
-    //     next_colors[i(id.xy)] = vec4<f32>(0.5, 1.0, 0.5, 1.0);
-    // }
-    // else if sum[0] + sum[1] + sum[2] == 6.0 {
-    //    next_colors[i(id.xy)] = vec4<f32>(0.0, 0.0, 1.0, 1.0);
-    // }
-    // else if sum[0] + sum[1] + sum[2] == 4.0 {
-    //     next_colors[i(id.xy)] = vec4<f32>(1.0, 0.0, 0.0, 1.0);
-    // }
-    // else if sum[0] + sum[1] + sum[2] == 5.0 {
-    //     next_colors[i(id.xy)] = vec4<f32>(1.0, 1.0, 1.0, 1.0);
-    // }
-    // else if sum[0] + sum[1] + sum[2] == 6.0 {
-    //    next_colors[i(id.xy)] = vec4<f32>(1.0, 1.0, 1.0, 1.0);
-    // }
-    else {
-        next_colors[index(id.xy)] = vec4<f32>(0.0, 0.0, 0.0, 1.0);
-    }
+        atomicAdd(&current_state[index(id.xy)][0],1u);
+        atomicAdd(&next_state[index(id.xy)][0],1u);
+        next_colors[index(id.xy)] = vec4f(current_colors[index(id.xy)].r, f32(atomicLoad(&next_state[index(id.xy)][0])),current_colors[index(id.xy)].b,1.0);
 }
