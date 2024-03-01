@@ -5,10 +5,9 @@ struct Global {
 };
 
 @binding(0) @group(0) var<uniform> global: Global;
-@binding(1) @group(0) var<storage, read> current_colors: array<vec4<f32>>;
-@binding(2) @group(0) var<storage, read_write> next_colors: array<vec4<f32>>;
-@binding(3) @group(0) var<storage, read_write> current_state: array<array<atomic<u32>, 24>>; // Histogram with 24 bins of u32 numbers
-@binding(4) @group(0) var<storage, read_write> next_state: array<array<atomic<u32>, 24>>; // Histogram with 24 bins of u32 numbers
+@binding(1) @group(0) var<storage, read_write> colors: array<vec4<f32>>;
+@binding(2) @group(0) var<storage, read_write> current_state: array<atomic<u32>>; // Histogram with 24 bins of u32 numbers
+@binding(3) @group(0) var<storage, read_write> next_state: array<atomic<u32>>; // Histogram with 24 bins of u32 numbers
 
 override blockSize = 8;
 
@@ -31,22 +30,34 @@ fn neighbor(id: vec2u, dir: vec2i) -> vec2u {
     }  
 }
 
-fn ring(id: vec2u, radius: u32)  {
+fn ring(id: vec2u, radius: u32, c: u32)  {
+    if c == 0 {
+        return;
+    }
     var x = id.x;
     var y = id.y;
+    
     //  move radius times down left
     for (var i = 0u; i < radius; i = i + 1u) {
         let par = parity(vec2u(x, y)); 
         x = x - par;
         y = y - 1u;
     }
+    var _token = c;
     var id_ = vec2u(x, y);
     for (var i = 0u; i < 6; i = i + 1u) {
         for (var j = 0u; j < radius; j = j + 1u) {
-            next_colors[index(vec2u(id_))] = vec4<f32>(0.0, 0.0, 1.0, 1.0);
+            if (_token <= 0) {
+                break;
+            }
+            atomicAdd(&next_state[index(vec2u(id_))],c/6);
+            atomicSub(&next_state[index(id.xy)], c/6);
+            
+            _token = _token - 1;
             id_ = neighbor(id_, directions[i]);
         }
     }
+   
 }
 // spiral should call `fn ring` for each radius.
 // But my browser crashes when I do that.
@@ -67,8 +78,8 @@ fn spiral(id: vec2u, i_radius: u32, o_radius: u32) -> vec3<f32> {
         // Ring
         for (var k = 0u; k < 6; k = k + 1u) {
             for (var l = 1u; l <= _radius; l = l + 1u) {
-                // next_colors[index(vec2u(id_))] = vec4<f32>(1.0/(0.5*f32(_radius)), 0.0, 0.5, 1.0);
-                sum = sum + current_colors[index(vec2u(id_))].xyz;
+                // colors[index(vec2u(id_))] = vec4<f32>(1.0/(0.5*f32(_radius)), 0.0, 0.5, 1.0);
+                sum = sum + colors[index(vec2u(id_))].xyz;
                 id_ = neighbor(id_, directions[k]);
             }
         }
@@ -98,7 +109,7 @@ fn countNeighbors(id: vec2u) -> array<f32,3> {
         let index = neighbors[i];
         
         if index < u32(global.grid_width * global.grid_height) {
-            let color = current_colors[index];
+            let color = colors[index];
             sum_r = sum_r + color.x;
             sum_g = sum_g + color.y;
             sum_b = sum_b + color.z;
@@ -117,9 +128,14 @@ fn parity(id: vec2u) -> u32 {
     return id.y & 1;
 }
 
+
 @compute @workgroup_size(1) 
 fn main( @builtin(global_invocation_id) id: vec3<u32>) {
-        atomicAdd(&current_state[index(id.xy)][0],1u);
-        atomicAdd(&next_state[index(id.xy)][0],1u);
-        next_colors[index(id.xy)] = vec4f(current_colors[index(id.xy)].r, f32(atomicLoad(&next_state[index(id.xy)][0])),current_colors[index(id.xy)].b,1.0);
+    // Verifying I can access atomic histgrams and colors per cell
+    // atomicAdd(&current_state[index(id.xy)][0],1u);
+    let c = atomicLoad(&current_state[index(id.xy)]);
+    atomicStore(&next_state[index(id.xy)], c);
+    
+    ring(id.xy, 1, c);
+    colors[index(id.xy)] = vec4<f32>(f32(c) / 6.0, f32(c) / 6.0, f32(c) / 6.0, 1.0);
 }

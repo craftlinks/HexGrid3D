@@ -1,7 +1,7 @@
 async function main() {
     
     // Constants
-    const hexGridDimensions = [10.0, 10.0];
+    const hexGridDimensions = [100.0, 100.0];
     const hexSize = 1.0 / (Math.max(hexGridDimensions[0], hexGridDimensions[1]));
   
     const adapter = await navigator.gpu?.requestAdapter();
@@ -54,7 +54,7 @@ async function main() {
       2 * 4 +  // scale is 2 32bit floats (4bytes each)
       2 * 4;   // grid_width and grid_height are 2 32bit floats (4bytes each)
 
-    const stateUnitSize = 24 * 4; // 24 x 32bit unsigned int (4bytes each): Histogram of bins
+    const stateUnitSize = 1 * 4; // 24 x 32bit unsigned int (4bytes each): Histogram of bins
   
     const hexAttributesStorageBufferSize = hexGridDimensions[0] * hexGridDimensions[1] * hexAttributeUnitSize;
     const colorsBufferSize = hexGridDimensions[0] * hexGridDimensions[1] * colorUnitSize;
@@ -69,12 +69,6 @@ async function main() {
   
     const colorsBuffer_0 = device.createBuffer({
       label: `flip colors storage buffer for objects`,
-      size: colorsBufferSize,
-      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-    });
-  
-    const colorsBuffer_1 = device.createBuffer({
-      label: `flop colors storage buffer for objects`,
       size: colorsBufferSize,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
@@ -114,24 +108,17 @@ async function main() {
       }
       device.queue.writeBuffer(hexAttributesStorageBuffer, 0, hexAttributesStorageValues);
     }
-  
+
     {
-      const colorsValues = new Float32Array(colorsBufferSize / 4);
+      const stateValues = new Uint32Array(stateBufferSize / 4);
       for (let i = 0; i < hexGridDimensions[0] * hexGridDimensions[1]; ++i) {
-        const bufferOffset = i * (colorUnitSize / 4);
-        colorsValues.set([0.0, 0.0, 0.0, 1], bufferOffset);
-        let y = Math.floor(i / hexGridDimensions[0]);
-        let x = i % hexGridDimensions[0];
-        //colorsValues.set([(x ^ y + 1) % 4 == 0, 0.0, 0.0, 1.0], bufferOffset);
-        // if (rand(1)> 0.999) {
-        //   colorsValues.set([rand(0.5), rand(0.5), rand(0.5), 1.0], bufferOffset);
-        // }
+        const bufferOffset = i * (stateUnitSize / 4);
         if (i  == hexGridDimensions[0] * hexGridDimensions[1] / 2 + hexGridDimensions[0] / 2) {
-          colorsValues.set([1.0, 1.0, 1.0, 1.0], bufferOffset);
+          stateValues.set([128000], bufferOffset);
         }
       }
-  
-      device.queue.writeBuffer(colorsBuffer_0, 0, colorsValues);
+
+      device.queue.writeBuffer(stateBuffer_0, 0, stateValues);
     }
   
     // setup a storage buffer with vertex data
@@ -187,25 +174,13 @@ async function main() {
       ],
     });
   
-    const renderBindGroup_1 = device.createBindGroup({
-      label: 'flop bind group for objects',
-      layout: render_pipeline.getBindGroupLayout(0),
-      entries: [
-        { binding: 0, resource: { buffer: hexAttributesStorageBuffer } },
-        { binding: 1, resource: { buffer: colorsBuffer_1 } },
-        { binding: 2, resource: { buffer: globalAttributesBuffer } },
-        { binding: 3, resource: { buffer: vertexStorageBuffer } },
-      ],
-    });
-  
     const computeBindGroup_0 = device.createBindGroup({
       layout: compute_pipeline.getBindGroupLayout(0),
       entries: [
         { binding: 0, resource: { buffer: globalAttributesBuffer } },
         { binding: 1, resource: { buffer: colorsBuffer_0 } },
-        { binding: 2, resource: { buffer: colorsBuffer_1 } },
-        { binding: 3, resource: { buffer: stateBuffer_0 } },
-        { binding: 4, resource: { buffer: stateBuffer_1 } },
+        { binding: 2, resource: { buffer: stateBuffer_0 } },
+        { binding: 3, resource: { buffer: stateBuffer_1 } },
       ],
     });
   
@@ -213,10 +188,9 @@ async function main() {
       layout: compute_pipeline.getBindGroupLayout(0),
       entries: [
         { binding: 0, resource: { buffer: globalAttributesBuffer } },
-        { binding: 1, resource: { buffer: colorsBuffer_1 } },
-        { binding: 2, resource: { buffer: colorsBuffer_0 } },
-        { binding: 3, resource: { buffer: stateBuffer_1 } },
-        { binding: 4, resource: { buffer: stateBuffer_0 } },
+        { binding: 1, resource: { buffer: colorsBuffer_0 } },
+        { binding: 2, resource: { buffer: stateBuffer_1 } },
+        { binding: 3, resource: { buffer: stateBuffer_0 } },
       ],
     });
   
@@ -250,7 +224,7 @@ async function main() {
       // Compute pass
       const computePass = encoder.beginComputePass();
       computePass.setPipeline(compute_pipeline);
-      computePass.setBindGroup(0, looptime ? computeBindGroup_0 : computeBindGroup_1);
+      computePass.setBindGroup(0, lt ? computeBindGroup_0 : computeBindGroup_1);
       computePass.dispatchWorkgroups(hexGridDimensions[0],hexGridDimensions[1]);
       computePass.end();
   
@@ -265,7 +239,7 @@ async function main() {
       globalAttributesValues.set([scale / aspect, scale, hexGridDimensions[0], hexGridDimensions[1]], 0);
       device.queue.writeBuffer(globalAttributesBuffer, 0, globalAttributesValues);
   
-      renderPass.setBindGroup(0, looptime ? renderBindGroup_0 : renderBindGroup_1);
+      renderPass.setBindGroup(0, renderBindGroup_0 );
       renderPass.draw(numVertices, hexGridDimensions[0] * hexGridDimensions[1]);  // call our vertex shader for each vertex for each instance
       renderPass.end();
   
@@ -274,7 +248,7 @@ async function main() {
       lt = 1 - lt;
       setTimeout(() => {
         render(lt)
-      }, 500);
+      }, 50);
     }
     render(1);
   
