@@ -14,7 +14,7 @@ struct VSOutput {
 }
 
 @group(0) @binding(0) var<storage, read> offsets: array<vec2f>;
-@group(0) @binding(1) var<storage, read> colors: array<vec4f>;
+@group(0) @binding(1) var<storage, read> state: array<u32>;
 @group(0) @binding(2) var<uniform> global: Global;
 @group(0) @binding(3) var<storage, read> pos: array<Vertex>;
 
@@ -24,10 +24,10 @@ struct VSOutput {
 ) -> VSOutput {
 
     let hex_offset = offsets[instanceIndex];
-    let hex_color = colors[instanceIndex];
+    let hex_state = state[instanceIndex];
 
     var vsOut: VSOutput;
     vsOut.position = vec4f((pos[vertexIndex].position + 0.2) * global.scale + hex_offset * global.scale, 0.0, 1.0);
-    vsOut.color = colors[instanceIndex];
+    vsOut.color = vec4f(f32(hex_state), f32(hex_state), f32(hex_state), 1.0);
     return vsOut;
 }
