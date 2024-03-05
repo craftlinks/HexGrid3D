@@ -2,7 +2,7 @@ import { simulation } from './simulation/simulation';
 
 async function main() {
   // Constants
-  const hexGridDimensions = [16.0, 16.0];
+  const hexGridDimensions = [64.0, 64.0];
   const hexSize = 1.0 / (Math.max(hexGridDimensions[0], hexGridDimensions[1]));
 
   const adapter = await navigator.gpu?.requestAdapter();
@@ -99,8 +99,9 @@ async function main() {
   for (let i = 0; i < hexGridDimensions[0] * hexGridDimensions[1]; ++i) {
     const bufferOffset = i * (stateUnitSize / 4);
     if (i  == hexGridDimensions[0] * hexGridDimensions[1] / 2 + hexGridDimensions[0] / 2) {
-    // if (Math.random() < 0.1) {
-      stateValues_0.set([12], bufferOffset);
+    //if (Math.random() < 0.1) {
+      stateValues_0.set([96], bufferOffset);
+      stateValues_1.set(stateValues_0);
     }
   }
 
@@ -171,7 +172,7 @@ async function main() {
     // swap the state buffers
     const currentStateValues = lt == 1 ? stateValues_0 : stateValues_1;
     const nextStateValues = lt == 1 ? stateValues_1 : stateValues_0;
-    const stateValues: Int32Array = simulation(currentStateValues, nextStateValues);
+    const stateValues: Int32Array = simulation(currentStateValues, nextStateValues, hexGridDimensions);
 
     // Get the current texture from the canvas context and
     // set it as the texture to render to.
@@ -203,7 +204,7 @@ async function main() {
     lt = 1 - lt;
     setTimeout(() => {
       render(lt)
-    }, 500);
+    }, 50);
   }
   render(1);
 }
