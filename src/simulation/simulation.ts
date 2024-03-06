@@ -2,10 +2,10 @@ export function simulation(current_state_buffer: Int32Array, next_state_buffer: 
     
     // Set of parameters
     const bin_size          : number = 24;         //  Bin size
-    const residual_rate     : number = 0.05000;        //  Residual rate
-    const removal_rate      : number = 0.0080000;      //  Removal rate
-    const init_token_number : number = 10000;          //  Generarion number of tokens
-    const morphogenesis     : number = 0.60 ;       //  Morphogenesis parameter
+    const residual_rate     : number = 0.08000;        //  Residual rate
+    const removal_rate      : number = 0.0060000;      //  Removal rate
+    const init_token_number : number = 1000;          //  Generarion number of tokens
+    const morphogenesis     : number = 0.9 ;       //  Morphogenesis parameter
     
     next_state_buffer.fill(0);
     // console.log ("INITIALIZE SIMULATION");

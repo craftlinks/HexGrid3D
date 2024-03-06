@@ -2,7 +2,7 @@ import { simulation } from './simulation/simulation';
 
 async function main() {
   // Constants
-  const hexGridDimensions = [80.0, 80.0];
+  const hexGridDimensions = [100.0, 100.0];
   const hexSize = 1.0 / (Math.max(hexGridDimensions[0], hexGridDimensions[1]));
 
   const adapter = await navigator.gpu?.requestAdapter();
@@ -101,8 +101,8 @@ async function main() {
     const bufferOffset = i * (stateUnitSize / 4);
     let center = Math.floor(hexGridDimensions[0] * hexGridDimensions[1] / 2 + hexGridDimensions[0] / 2); 
     // if (i == center + 1) {
-    if (i  == center || i == center + 1 || i == center + hexGridDimensions[0] || i == center + hexGridDimensions[0] + 1) {
-    // if (Math.random() < 0.01) {
+    // if (i  == center || i == center + 1 || i == center + hexGridDimensions[0] || i == center + hexGridDimensions[0] + 1) {
+    if (Math.random() < 0.001) {
       stateValues_0.set([
         1,0,0,0,0,
         0,0,0,0,0,
