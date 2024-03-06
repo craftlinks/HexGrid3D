@@ -2,10 +2,10 @@ export function simulation(current_state_buffer: Int32Array, next_state_buffer: 
     
     // Set of parameters
     const bin_size          : number = 24;         //  Bin size
-    const residual_rate     : number = 0.04000;        //  Residual rate
-    const removal_rate      : number = 0.0220000;      //  Removal rate
+    const residual_rate     : number = 0.05000;        //  Residual rate
+    const removal_rate      : number = 0.0080000;      //  Removal rate
     const init_token_number : number = 10000;          //  Generarion number of tokens
-    const morphogenesis     : number = 0.80 ;       //  Morphogenesis parameter
+    const morphogenesis     : number = 0.60 ;       //  Morphogenesis parameter
     
     next_state_buffer.fill(0);
     // console.log ("INITIALIZE SIMULATION");
@@ -120,7 +120,7 @@ export function simulation(current_state_buffer: Int32Array, next_state_buffer: 
                 c_tokens[current_bin_idx] -= Math.round(number_of_tokens_to_available*(1.0 - residual_rate) / 7);
                 var n_tokens = get_tokens(neighbor_coordinate[0], neighbor_coordinate[1], next_state_buffer);
                 n_tokens[current_bin_idx + 1] += Math.round(number_of_tokens_to_available*(1.0 - residual_rate) / 7);
-                neighbor_coordinate = neighbor(x, y, directions[random_direction]);
+                neighbor_coordinate = neighbor(neighbor_coordinate[0], neighbor_coordinate[1], directions[random_direction]);
                 // console.log(x, y, neighbor_coordinate, c_tokens, n_tokens)
             }
         }
