@@ -99,8 +99,10 @@ async function main() {
   const stateValues_1 = new Int32Array(stateBufferSize / 4);
   for (let i = 0; i < hexGridDimensions[0] * hexGridDimensions[1]; ++i) {
     const bufferOffset = i * (stateUnitSize / 4);
-    if (i  == hexGridDimensions[0] * hexGridDimensions[1] / 2 + hexGridDimensions[0] / 2) {
-    // if (Math.random() < 0.0001) {
+    let center = Math.floor(hexGridDimensions[0] * hexGridDimensions[1] / 2 + hexGridDimensions[0] / 2); 
+    // if (i == center + 1) {
+    if (i  == center || i == center + 1 || i == center + hexGridDimensions[0] || i == center + hexGridDimensions[0] + 1) {
+    // if (Math.random() < 0.001) {
       stateValues_0.set([
         1,0,0,0,0,
         0,0,0,0,0,
@@ -209,7 +211,7 @@ async function main() {
     lt = 1 - lt;
     setTimeout(() => {
       render(lt)
-    }, 1000);
+    }, 50);
   }
   render(1);
 }
