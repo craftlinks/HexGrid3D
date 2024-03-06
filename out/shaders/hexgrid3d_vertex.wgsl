@@ -22,9 +22,9 @@ struct VSOutput {
     @builtin(vertex_index) vertexIndex : u32, // each time we call the vertex shader, this will be 0, 1, 2
     @builtin(instance_index) instanceIndex : u32 // each time we call the vertex shader, this will be 0, 1, ... (kNumObjects - 1)
 ) -> VSOutput {
-
+    let offset: u32 = 3;
     let hex_offset = offsets[instanceIndex];
-    let hex_state = state[instanceIndex];
+    let hex_state = state[instanceIndex * offset];
 
     var vsOut: VSOutput;
     vsOut.position = vec4f((pos[vertexIndex].position + 0.2) * global.scale + hex_offset * global.scale, 0.0, 1.0);
