@@ -2,10 +2,10 @@ export function simulation(current_state_buffer: Int32Array, next_state_buffer: 
     
     // Set of parameters
     const bin_size          : number = 24;         //  Bin size
-    const residual_rate     : number = 0.08000;        //  Residual rate
-    const removal_rate      : number = 0.0060000;      //  Removal rate
+    const residual_rate     : number = 0.06000;        //  Residual rate
+    const removal_rate      : number = 0.0080000;      //  Removal rate
     const init_token_number : number = 1000;          //  Generarion number of tokens
-    const morphogenesis     : number = 0.9 ;       //  Morphogenesis parameter
+    const morphogenesis     : number = 0.2 ;       //  Morphogenesis parameter
     
     next_state_buffer.fill(0);
     // console.log ("INITIALIZE SIMULATION");
@@ -110,20 +110,15 @@ export function simulation(current_state_buffer: Int32Array, next_state_buffer: 
         get_tokens(x, y, next_state_buffer)[current_bin_idx + 1] += Math.round(number_of_tokens_to_available*(1.0 - residual_rate) / 7);
         c_tokens[current_bin_idx] -= Math.round(number_of_tokens_to_available*(1.0 - residual_rate) / 7);
 
-        for (var i = 0; i < 6; i = i + 1) {
-            for (var j = 0; j < radius; j = j + 1) {
-                
-                if (c_tokens[current_bin_idx] <= 0) {
-                    break;
-                }
-                let random_direction = Math.floor(Math.random() * 5);
-                c_tokens[current_bin_idx] -= Math.round(number_of_tokens_to_available*(1.0 - residual_rate) / 7);
-                var n_tokens = get_tokens(neighbor_coordinate[0], neighbor_coordinate[1], next_state_buffer);
-                n_tokens[current_bin_idx + 1] += Math.round(number_of_tokens_to_available*(1.0 - residual_rate) / 7);
-                neighbor_coordinate = neighbor(neighbor_coordinate[0], neighbor_coordinate[1], directions[random_direction]);
-                // console.log(x, y, neighbor_coordinate, c_tokens, n_tokens)
-            }
+        while (c_tokens[current_bin_idx] > 0) { 
+            let random_direction = Math.floor(Math.random() * 5);
+            c_tokens[current_bin_idx] -= Math.round(number_of_tokens_to_available*(1.0 - residual_rate) / 7);
+            var n_tokens = get_tokens(neighbor_coordinate[0], neighbor_coordinate[1], next_state_buffer);
+            n_tokens[current_bin_idx + 1] += Math.round(number_of_tokens_to_available*(1.0 - residual_rate) / 7);
+            neighbor_coordinate = neighbor(x, y, directions[random_direction]);
+            // console.log(x, y, neighbor_coordinate, c_tokens, n_tokens)
         }
+        
 
         // Tokens remaining in the current cell
         c_tokens[current_bin_idx] -= number_of_tokens_to_available * residual_rate;
@@ -132,18 +127,18 @@ export function simulation(current_state_buffer: Int32Array, next_state_buffer: 
         // console.log("tokens distributed back into own cell:", n_tokens);
 
         // If there is a remainder, the direction will be assigned by a random number. 
-        while (c_tokens[current_bin_idx] > 0) {
-            let random_direction = Math.floor(Math.random() * 6);
-            c_tokens[current_bin_idx] -= 1;
-            if (random_direction <= 5) {
-                neighbor_coordinate = neighbor(x, y, directions[random_direction]);
-                n_tokens = get_tokens(neighbor_coordinate[0], neighbor_coordinate[1], next_state_buffer);
-                n_tokens[current_bin_idx + 1] += 1;
-            }
-            else {
-                n_tokens[current_bin_idx] += 1;
-            }
-        }
+        // while (c_tokens[current_bin_idx] > 0) {
+        //     let random_direction = Math.floor(Math.random() * 6);
+        //     c_tokens[current_bin_idx] -= 1;
+        //     if (random_direction <= 5) {
+        //         neighbor_coordinate = neighbor(x, y, directions[random_direction]);
+        //         n_tokens = get_tokens(neighbor_coordinate[0], neighbor_coordinate[1], next_state_buffer);
+        //         n_tokens[current_bin_idx + 1] += 1;
+        //     }
+        //     else {
+        //         n_tokens[current_bin_idx] += 1;
+        //     }
+        // }
 
     }
 
