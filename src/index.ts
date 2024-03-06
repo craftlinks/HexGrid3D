@@ -49,7 +49,7 @@ async function main() {
     2 * 4 +  // scale is 2 32bit floats (4bytes each)
     2 * 4;   // grid_width and grid_height are 2 32bit floats (4bytes each)
 
-  const stateUnitSize = 1 * 4; // 24 x 32bit unsigned int (4bytes each): Histogram of bins
+  const stateUnitSize = 2 * 4; // 2 x 32bit unsigned int (4bytes each): Histogram of bins
 
   const hexAttributesStorageBufferSize = hexGridDimensions[0] * hexGridDimensions[1] * hexAttributeUnitSize;
   const globalAttributesBufferSize = GlobalAttributesUnitSize;
@@ -99,8 +99,8 @@ async function main() {
   for (let i = 0; i < hexGridDimensions[0] * hexGridDimensions[1]; ++i) {
     const bufferOffset = i * (stateUnitSize / 4);
     if (i  == hexGridDimensions[0] * hexGridDimensions[1] / 2 + hexGridDimensions[0] / 2) {
-    //if (Math.random() < 0.1) {
-      stateValues_0.set([96], bufferOffset);
+    // if (Math.random() < 0.1) {
+      stateValues_0.set([1,0], bufferOffset);
       stateValues_1.set(stateValues_0);
     }
   }

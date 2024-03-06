@@ -1,4 +1,35 @@
 export function simulation(current_state_buffer: Int32Array, next_state_buffer: Int32Array, hexGridDimensions: number[2]) {
+    
+    // Set of parameters
+    const bin_size          : number = 1;         //  Bin size
+    const residual_rate     : number = 0.05000;        //  Residual rate
+    const removal_rate      : number = 0.0080000;      //  Removal rate
+    const init_token_number : number = 10000;          //  Generarion number of tokens
+    const morphogenesis     : number = 0.600 ;       //  Morphogenesis parameter
+
+    
+
+    // For every cell in the grid call the ring function
+    for (var y = 0; y < hexGridDimensions[1]; y = y + 1) {
+        for (var x = 0; x < hexGridDimensions[0]; x = x + 1) {
+            let state = current_state_buffer[index(x, y)];
+            let tokens = current_state_buffer.subarray(index(x, y) + 1, index(x, y) + bin_size + 1)[0]; // TODO Geert: create a function for this!
+            if (state > 0) {
+                console.log("BEFORE:", "c: ", state, "t: ", tokens);
+                current_state_buffer.subarray(index(x, y) + 1, index(x, y) + bin_size + 1)[0] = init_token_number; // If cell has tokens then re-init token number
+                console.log("AFTER:", "c: ", state, "t: ", current_state_buffer[index(x, y) + 1]);
+            }
+        }
+    }
+
+    // for (var s = 0; s <= bin_size; s = s + 1) {
+    //     for (var y = 0; y < hexGridDimensions[1]; y = y + 1) {
+    //         for (var x = 0; x < hexGridDimensions[0]; x = x + 1) {
+                
+    //         }
+    //     }
+    // }
+    
     // This is the simulation code.
     // It's a simple copy of the current state to the next state.
     next_state_buffer.set(current_state_buffer);
@@ -6,7 +37,7 @@ export function simulation(current_state_buffer: Int32Array, next_state_buffer: 
     function index(x, y): number {
         let _x = (x +  hexGridDimensions[0]) % hexGridDimensions[0];
         let _y = (y + hexGridDimensions[1]) % hexGridDimensions[1];
-        return _y * hexGridDimensions[0] + _x;
+        return _y * (hexGridDimensions[0]* (bin_size + 1)) + (_x * (bin_size + 1));
     }
 
     function ring(x: number, y: number, radius: number, c: number)  {
@@ -39,15 +70,15 @@ export function simulation(current_state_buffer: Int32Array, next_state_buffer: 
         }
     }
 
-    // For every cell in the grid call the ring function
-    for (var y = 0; y < hexGridDimensions[1]; y = y + 1) {
-        for (var x = 0; x < hexGridDimensions[0]; x = x + 1) {
-            let c = current_state_buffer[index(x, y)];
-            if (c > 0) {
-                ring(x, y, 1, c);
-            }
-        }
-    }
+    // // For every cell in the grid call the ring function
+    // for (var y = 0; y < hexGridDimensions[1]; y = y + 1) {
+    //     for (var x = 0; x < hexGridDimensions[0]; x = x + 1) {
+    //         let c = current_state_buffer[index(x, y)];
+    //         if (c > 0) {
+    //             ring(x, y, 1, c);
+    //         }
+    //     }
+    // }
 
     return current_state_buffer;
 }
