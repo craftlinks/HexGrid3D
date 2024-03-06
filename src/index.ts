@@ -2,7 +2,7 @@ import { simulation } from './simulation/simulation';
 
 async function main() {
   // Constants
-  const hexGridDimensions = [128.0, 128.0];
+  const hexGridDimensions = [100.0, 100.0];
   const hexSize = 1.0 / (Math.max(hexGridDimensions[0], hexGridDimensions[1]));
 
   const adapter = await navigator.gpu?.requestAdapter();
@@ -50,7 +50,7 @@ async function main() {
     2 * 4;   // grid_width and grid_height are 2 32bit floats (4bytes each)
 
   const stateUnitSize = 1 * 4 + // 1 x 32bit state
-                        2 * 4;  // 2 x 32bit unsigned int (4bytes each): Histogram of bins
+                        24 * 4;  // 2 x 32bit unsigned int (4bytes each): Histogram of bins
 
   const hexAttributesStorageBufferSize = hexGridDimensions[0] * hexGridDimensions[1] * hexAttributeUnitSize;
   const globalAttributesBufferSize = GlobalAttributesUnitSize;
@@ -99,9 +99,14 @@ async function main() {
   const stateValues_1 = new Int32Array(stateBufferSize / 4);
   for (let i = 0; i < hexGridDimensions[0] * hexGridDimensions[1]; ++i) {
     const bufferOffset = i * (stateUnitSize / 4);
-    // if (i  == hexGridDimensions[0] * hexGridDimensions[1] / 2 + hexGridDimensions[0] / 2) {
-    if (Math.random() < 0.1) {
-      stateValues_0.set([1,0], bufferOffset);
+    if (i  == hexGridDimensions[0] * hexGridDimensions[1] / 2 + hexGridDimensions[0] / 2) {
+    // if (Math.random() < 0.0001) {
+      stateValues_0.set([
+        1,0,0,0,0,
+        0,0,0,0,0,
+        0,0,0,0,0,
+        0,0,0,0,0,
+        0,0,0,0,0], bufferOffset);
     }
   }
 

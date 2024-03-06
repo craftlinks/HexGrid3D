@@ -1,7 +1,7 @@
 export function simulation(current_state_buffer: Int32Array, next_state_buffer: Int32Array, hexGridDimensions: number[2]) {
     
     // Set of parameters
-    const bin_size          : number = 2;         //  Bin size
+    const bin_size          : number = 24;         //  Bin size
     const residual_rate     : number = 0.05000;        //  Residual rate
     const removal_rate      : number = 0.0080000;      //  Removal rate
     const init_token_number : number = 10000;          //  Generarion number of tokens

@@ -22,7 +22,7 @@ struct VSOutput {
     @builtin(vertex_index) vertexIndex : u32, // each time we call the vertex shader, this will be 0, 1, 2
     @builtin(instance_index) instanceIndex : u32 // each time we call the vertex shader, this will be 0, 1, ... (kNumObjects - 1)
 ) -> VSOutput {
-    let offset: u32 = 3;
+    let offset: u32 = 25;
     let hex_offset = offsets[instanceIndex];
     let hex_state = state[instanceIndex * offset];
 
