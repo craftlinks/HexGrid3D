@@ -2,16 +2,17 @@ export function simulation(current_state_buffer: Int32Array, next_state_buffer: 
     
     // Set of parameters
     const bin_size          : number = 24;         //  Bin size
-    const residual_rate     : number = 0.05000;        //  Residual rate
-    const removal_rate      : number = 0.0080000;      //  Removal rate
+    const residual_rate     : number = 0.04000;        //  Residual rate
+    const removal_rate      : number = 0.0220000;      //  Removal rate
     const init_token_number : number = 10000;          //  Generarion number of tokens
-    const morphogenesis     : number = 0.600 ;       //  Morphogenesis parameter
-
+    const morphogenesis     : number = 0.80 ;       //  Morphogenesis parameter
+    
+    next_state_buffer.fill(0);
     // console.log ("INITIALIZE SIMULATION");
     for (var y = 0; y < hexGridDimensions[1]; y = y + 1) {
         for (var x = 0; x < hexGridDimensions[0]; x = x + 1) {
             let state = current_state_buffer[index(x, y)];
-            next_state_buffer.fill(0);
+            
             let tokens =  get_tokens(x,y, current_state_buffer);
             if (state > 0) {
                 tokens[0] = init_token_number; // If cell has tokens then re-init token number
@@ -73,11 +74,7 @@ export function simulation(current_state_buffer: Int32Array, next_state_buffer: 
                 if (current_state_buffer[index(x,y)] == 1)  next_state_buffer[index(x, y)] = 1 ;
             } ;
         }
-    }
-
-    // Reset tokens, only keep the new state
-    let tokens =  get_tokens(x,y, current_state_buffer);
-    tokens.fill(0); 
+    } 
 
     function get_tokens(x: number, y: number, buffer: Int32Array): Int32Array {
         let tokens = buffer.subarray(index(x, y) + 1, index(x, y) + bin_size + 1);
@@ -119,11 +116,11 @@ export function simulation(current_state_buffer: Int32Array, next_state_buffer: 
                 if (c_tokens[current_bin_idx] <= 0) {
                     break;
                 }
-                
+                let random_direction = Math.floor(Math.random() * 5);
                 c_tokens[current_bin_idx] -= Math.round(number_of_tokens_to_available*(1.0 - residual_rate) / 7);
                 var n_tokens = get_tokens(neighbor_coordinate[0], neighbor_coordinate[1], next_state_buffer);
                 n_tokens[current_bin_idx + 1] += Math.round(number_of_tokens_to_available*(1.0 - residual_rate) / 7);
-                neighbor_coordinate = neighbor(neighbor_coordinate[0], neighbor_coordinate[1], directions[i]);
+                neighbor_coordinate = neighbor(x, y, directions[random_direction]);
                 // console.log(x, y, neighbor_coordinate, c_tokens, n_tokens)
             }
         }
@@ -136,7 +133,7 @@ export function simulation(current_state_buffer: Int32Array, next_state_buffer: 
 
         // If there is a remainder, the direction will be assigned by a random number. 
         while (c_tokens[current_bin_idx] > 0) {
-            let random_direction = Math.floor(Math.random() * 7);
+            let random_direction = Math.floor(Math.random() * 6);
             c_tokens[current_bin_idx] -= 1;
             if (random_direction <= 5) {
                 neighbor_coordinate = neighbor(x, y, directions[random_direction]);
