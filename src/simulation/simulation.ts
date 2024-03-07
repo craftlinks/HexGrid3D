@@ -1,18 +1,18 @@
 export function simulation(current_state_buffer: Int32Array, next_state_buffer: Int32Array, hexGridDimensions: number[2]) {
-    
+    console.log("Simulation");
     // Set of parameters
     const bin_size          : number = 24;         //  Bin size
-    const residual_rate     : number = 0.06000;        //  Residual rate
+    const residual_rate     : number = 0.00400;        //  Residual rate
     const removal_rate      : number = 0.0080000;      //  Removal rate
-    const init_token_number : number = 1000;          //  Generarion number of tokens
-    const morphogenesis     : number = 0.2 ;       //  Morphogenesis parameter
+    const init_token_number : number = 10000;          //  Generarion number of tokens
+    const morphogenesis     : number = 0.6 ;       //  Morphogenesis parameter
     
     next_state_buffer.fill(0);
-    // console.log ("INITIALIZE SIMULATION");
+
     for (var y = 0; y < hexGridDimensions[1]; y = y + 1) {
         for (var x = 0; x < hexGridDimensions[0]; x = x + 1) {
             let state = current_state_buffer[index(x, y)];
-            
+            next_state_buffer.fill(0);
             let tokens =  get_tokens(x,y, current_state_buffer);
             if (state > 0) {
                 tokens[0] = init_token_number; // If cell has tokens then re-init token number
@@ -20,30 +20,13 @@ export function simulation(current_state_buffer: Int32Array, next_state_buffer: 
             }
         }
     }
-    // console.log("DISTRIBUTE TOKENS");
-    for (var current_bin_idx = 0; current_bin_idx < bin_size - 1; current_bin_idx += 1) {
-        // console.log("current_bin_idx", current_bin_idx);
-        for (var y = 0; y < hexGridDimensions[1]; y = y + 1) {
-            for (var x = 0; x < hexGridDimensions[0]; x = x + 1) {
-                ring(x, y, 1, current_bin_idx)
+    for (var y = 0; y < hexGridDimensions[1]; y = y + 1) {
+        for (var x = 0; x < hexGridDimensions[0]; x = x + 1) {
+            const c_tokens = get_tokens(x,y,current_state_buffer)[0]; // Current cell tokens in active cell
+            if (c_tokens == 0) {
+                continue;
             }
-        }
-        // Reduce the number of tokens to 0 by the removal rate 
-        for (var y = 0; y < hexGridDimensions[1]; y = y + 1) {
-            for (var x = 0; x < hexGridDimensions[0]; x = x + 1) {
-                var next_tokens = get_tokens(x,y, next_state_buffer);
-                if (next_tokens[current_bin_idx] < (init_token_number * removal_rate)) {
-                    next_tokens[current_bin_idx] = 0;
-                } 
-                if (next_tokens[current_bin_idx + 1] <(init_token_number * removal_rate)) {
-                    next_tokens[current_bin_idx + 1] = 0;
-                }
-                var current_tokens = get_tokens(x,y, current_state_buffer);
-                current_tokens[current_bin_idx] = next_tokens[current_bin_idx];
-                current_tokens[current_bin_idx + 1] = next_tokens[current_bin_idx + 1];
-                next_tokens[current_bin_idx] = 0;
-                next_tokens[current_bin_idx + 1] = 0;
-            }
+            spiral(x, y, 1, bin_size);
         }
     }
 
@@ -53,28 +36,37 @@ export function simulation(current_state_buffer: Int32Array, next_state_buffer: 
             // Count the number of tokens
             var lower_count = 0;
             var upper_count = 0;
-            
+            var cell_tokens =  get_tokens(x, y, next_state_buffer);
             for (var current_bin_idx = 0; current_bin_idx < (bin_size/2)-1; current_bin_idx += 1) {
-                lower_count += get_tokens(x, y, current_state_buffer)[current_bin_idx];
-                   
+                lower_count +=cell_tokens[current_bin_idx];
+                    
             }
             for (var current_bin_idx = (bin_size/2); current_bin_idx < bin_size; current_bin_idx += 1) {
-                upper_count += get_tokens(x, y, current_state_buffer)[current_bin_idx];
+                upper_count += cell_tokens[current_bin_idx];
             }
-            upper_count = upper_count + lower_count;
+            
+             // console.log("Lower Count", lower_count, "Upper Count", upper_count);
             // Judgment of the next cell state 
-            if(lower_count > ((upper_count)*morphogenesis) ) {
+            if (lower_count == 0 || upper_count == 0) {
+                next_state_buffer[index(x, y)] = 0;
+                continue;
+            }
+            
+            let criterium = Math.floor(lower_count / upper_count);
+            
+            
+            if(criterium < 100.0 ) {
+                next_state_buffer[index(x, y)] = 0;
+                // console.log("Criterium", criterium);
+            }
+            else {
                 next_state_buffer[index(x, y)] = 1;
             }
-            if(lower_count < ((upper_count)*morphogenesis) ) {
-                next_state_buffer[index(x, y)] = 0;
-            }
-            if(lower_count == ((upper_count)*morphogenesis) ) {
-                if (current_state_buffer[index(x,y)] == 0)  next_state_buffer[index(x, y)] = 0 ;
-                if (current_state_buffer[index(x,y)] == 1)  next_state_buffer[index(x, y)] = 1 ;
-            } ;
+
         }
-    } 
+    }
+
+    return current_state_buffer;
 
     function get_tokens(x: number, y: number, buffer: Int32Array): Int32Array {
         let tokens = buffer.subarray(index(x, y) + 1, index(x, y) + bin_size + 1);
@@ -87,14 +79,21 @@ export function simulation(current_state_buffer: Int32Array, next_state_buffer: 
         return _y * (hexGridDimensions[0]* (bin_size + 1)) + (_x * (bin_size + 1));
     }
 
-    function ring(x: number, y: number, radius: number, current_bin_idx: number)  {
+    function spiral(x, y, i_radius: u32, o_radius: u32) {
+        for (var i = i_radius; i <= o_radius; i = i + 1) {
+            ring(x, y, i);
+        }
+        get_tokens(x,y,next_state_buffer)[0] = get_tokens(x, y, current_state_buffer)[0];
+    }
+
+    function ring(x: number, y: number, radius: number)  {
         
-        var c_tokens = get_tokens(x, y, current_state_buffer);
-        
-        if (c_tokens[current_bin_idx] == 0) {
+        var init_tokens = get_tokens(x, y, current_state_buffer)
+        var c_tokens = init_tokens[0];
+        // console.log("INIT TOKENS", init_tokens[0]);
+        if (init_tokens <= 0) {
             return;
         }
-        // console.log("ring", x, y);
         let _x = x;
         let _y = y;
         //  move radius times down left
@@ -105,49 +104,33 @@ export function simulation(current_state_buffer: Int32Array, next_state_buffer: 
         }
         var neighbor_coordinate = [_x,_y];
 
-        // Distribute tokens to neighbors
-        let number_of_tokens_to_available = c_tokens[current_bin_idx];
-        get_tokens(x, y, next_state_buffer)[current_bin_idx + 1] += Math.round(number_of_tokens_to_available*(1.0 - residual_rate) / 7);
-        c_tokens[current_bin_idx] -= Math.round(number_of_tokens_to_available*(1.0 - residual_rate) / 7);
+        for (var i = 0; i < 6; i = i + 1) {
+            if (c_tokens <= 0) {
+                break;
+            }
+            for (var j = 0; j < radius; j = j + 1) {
+                
+                if (c_tokens <= 0) {
+                    init_tokens[0] = 0;
+                    break;
+                }
+                const unit_tokens = Math.round(init_tokens[0]*(1.0 - residual_rate) / (radius * 6 * 6)) 
+                if (unit_tokens < init_token_number * removal_rate) {
+                    c_tokens = 0;
+                    break;
+                }
+                c_tokens -= unit_tokens;
+                var n_tokens = get_tokens(neighbor_coordinate[0], neighbor_coordinate[1], next_state_buffer);
+                n_tokens[radius] += unit_tokens;
+                neighbor_coordinate = neighbor(neighbor_coordinate[0], neighbor_coordinate[1], directions[i]);
 
-        while (c_tokens[current_bin_idx] > 0) { 
-            let random_direction = Math.floor(Math.random() * 5);
-            c_tokens[current_bin_idx] -= Math.round(number_of_tokens_to_available*(1.0 - residual_rate) / 7);
-            var n_tokens = get_tokens(neighbor_coordinate[0], neighbor_coordinate[1], next_state_buffer);
-            n_tokens[current_bin_idx + 1] += Math.round(number_of_tokens_to_available*(1.0 - residual_rate) / 7);
-            neighbor_coordinate = neighbor(x, y, directions[random_direction]);
-            // console.log(x, y, neighbor_coordinate, c_tokens, n_tokens)
+                console.log(_x, _y, radius, n_tokens[radius])
+            }
         }
-        
-
-        // Tokens remaining in the current cell
-        c_tokens[current_bin_idx] -= number_of_tokens_to_available * residual_rate;
-        //console.log("left over tokens:", c_tokens);
-        n_tokens[current_bin_idx] += number_of_tokens_to_available * residual_rate;
-        // console.log("tokens distributed back into own cell:", n_tokens);
-
-        // If there is a remainder, the direction will be assigned by a random number. 
-        // while (c_tokens[current_bin_idx] > 0) {
-        //     let random_direction = Math.floor(Math.random() * 6);
-        //     c_tokens[current_bin_idx] -= 1;
-        //     if (random_direction <= 5) {
-        //         neighbor_coordinate = neighbor(x, y, directions[random_direction]);
-        //         n_tokens = get_tokens(neighbor_coordinate[0], neighbor_coordinate[1], next_state_buffer);
-        //         n_tokens[current_bin_idx + 1] += 1;
-        //     }
-        //     else {
-        //         n_tokens[current_bin_idx] += 1;
-        //     }
-        // }
-
-    }
-
-
-    return current_state_buffer;
+        init_tokens[0] = c_tokens;
+        // console.log("Ring", x, y, radius, c_tokens);
+    }    
 }
-
-
-
 
 function neighbor(x: number, y: number, dir: number[2]): number[2] {
     let par = parity(y);
