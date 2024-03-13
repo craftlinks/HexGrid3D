@@ -1,29 +1,83 @@
-const point_n = 1000
 
 let params = {
-  mu_k: 2.0, sigma_k: .5, w_k: 0.015,
-  mu_g: 0.3, sigma_g: 0.075, c_rep: 1.0,
-  dt: 0.025
+  mu_k: 6.0,
+  sigma_k: 0.4,
+  w_k: 0.022,
+  mu_g: 0.4,
+  sigma_g: 0.100,
+  c_rep: 1.0,
+  dt: 0.02,
+  point_n: 500
 }
 
+// Define the ranges and step sizes for each parameter
+let ranges = {
+  mu_g: { min: 0, max: 2, step: 0.1 },
+  sigma_g: { min: 0.1, max: 1, step: 0.1 },
+  w_k: { min: 0, max: 0.1, step: 0.01 },
+  mu_k: { min: 0, max: 10, step: 1 },
+  sigma_k: { min: 0.1, max: 1.0, step: 0.1 },
+  c_rep: { min: 0, max: 1, step: 0.1 },
+  dt: { min: 0, max: 0.1, step: 0.01 },
+  point_n: { min: 100, max: 1000, step: 50 }
+
+};
+
+var canvas = document.querySelector('canvas')
+
+// Create and append parameters to the document
+for (let key in params) {
+  let label = document.createElement('label');
+  label.textContent = key;
+  label.htmlFor = key;
+
+  let input = document.createElement('input');
+  input.type = 'range'; // Make this input a slider
+  input.id = key;
+  input.value = params[key];
+  input.min = ranges[key].min; // Set the minimum value
+  input.max = ranges[key].max; // Set the maximum value
+  input.step = ranges[key].step; // Set the step size
+  input.style.margin = '0 5px'; // Add 10px of vertical margin
+
+  let valueDisplay = document.createElement('span'); // Create a span to display the value
+  valueDisplay.id = key + '_value'; // Give it an id so we can update it later
+  valueDisplay.textContent = params[key]; // Set its initial text content to the current value of the parameter
+  valueDisplay.style.margin = '0 5px'; // Add 10px of vertical margin
+
+  // Add event listener to update params and value display when input value changes
+  input.addEventListener('input', function() {
+    params[this.id] = this.value;
+    this.value = params[this.id]; // Update the value of the input element
+    document.getElementById(this.id + '_value').textContent = this.value; // Update the value display
+  });
+
+  // Insert the label, input, and value display before the canvas
+  canvas.parentNode.insertBefore(label, canvas);
+  canvas.parentNode.insertBefore(input, canvas);
+  canvas.parentNode.insertBefore(valueDisplay, canvas);
+}
+
+
+
 let fields = ({
-  R_val:  new Float32Array(point_n),
-  U_val:  new Float32Array(point_n),
-  R_grad: new Float32Array(point_n*2),
-  U_grad: new Float32Array(point_n*2),
+  R_val:  new Float32Array(params['point_n']),
+  U_val:  new Float32Array(params['point_n']),
+  R_grad: new Float32Array(params['point_n']*2),
+  U_grad: new Float32Array(params['point_n']*2),
 })
 
 
 
 function init(points: Float32Array) {
-  for (let i=0; i<point_n; ++i) {
+  for (let i=0; i<params['point_n']; ++i) {
     points[i*2]   = (Math.random()-0.5)*12;
     points[i*2+1] = (Math.random()-0.5)*12;
   }
   return points;
 }
 
-let points = init(new Float32Array(point_n*2));
+let points = init(new Float32Array(params['point_n']*2));
 
 function add_xy(a, i, x, y, c) {
   a[i*2] += x*c; a[i*2+1] += y*c;
@@ -38,8 +92,8 @@ function compute_fields() {
   U_val.fill(peak_f(0.0, mu_k, sigma_k, w_k)[0]);
   R_grad.fill(0); U_grad.fill(0);
 
-  for (let i=0; i<point_n-1; ++i)
-  for (let j=i+1; j<point_n; ++j) {
+  for (let i=0; i<params['point_n']-1; ++i)
+  for (let j=i+1; j<params['point_n']; ++j) {
     let rx = points[i*2]   - points[j*2];
     let ry = points[i*2+1] - points[j*2+1];
     const r = Math.sqrt(rx*rx + ry*ry) + 1e-20;
@@ -82,7 +136,7 @@ function step() {
   const {mu_g, sigma_g, dt} = params;
   compute_fields();
   let total_E = 0.0;
-  for (let i=0; i<point_n; ++i) {
+  for (let i=0; i<params['point_n']; ++i) {
     const [G, dG] = peak_f(U_val[i], mu_g, sigma_g);
      // [vx, vy] = -∇E = G'(U)∇U - ∇R
     const vx = dG*U_grad[i*2]   - R_grad[i*2];
@@ -90,10 +144,10 @@ function step() {
     add_xy(points, i, vx, vy, dt);
     total_E += R_val[i] - G;
   }
-  return total_E / point_n;
+  return total_E / params['point_n'];
 }
 
-function animate(ctx, world_width=40.0, steps_per_frame=5) {
+function animate(ctx, world_width=45.0, steps_per_frame=10) {
   for (let i=0; i<steps_per_frame; ++i) step();
   const {width, height} = ctx.canvas;
   ctx.resetTransform();
@@ -102,7 +156,7 @@ function animate(ctx, world_width=40.0, steps_per_frame=5) {
   const s = width/world_width;
   ctx.scale(s, s);
   ctx.lineWidth = 0.1;
-  for (let i=0; i<point_n; ++i) {
+  for (let i=0; i<params['point_n']; ++i) {
     ctx.beginPath();
     const x=points[i*2], y=points[i*2+1];
     const r = params.c_rep / (fields.R_val[i]*5.0);
@@ -110,6 +164,7 @@ function animate(ctx, world_width=40.0, steps_per_frame=5) {
     ctx.stroke();        
   }
 }
+ 
 
 function setupCanvas(canvas) {
   // Get the device pixel ratio, falling back to 1.
