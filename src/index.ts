@@ -143,14 +143,10 @@ async function main() {
     const commandBuffer = encoder.finish();
     device.queue.submit([commandBuffer]);
     
-    // console.log(positions);
-    
-    
-    // return positions;
   }
   
   // ANIMATION
-  async function animate(ctx, world_width=45.0, steps_per_frame=5) {
+  async function animate(ctx, world_width=100.0, steps_per_frame=10) {
     for (let i=0; i<steps_per_frame; ++i) {
       await step();
     }
@@ -166,12 +162,12 @@ async function main() {
     ctx.translate(width/2, height/2);
     const s = width/world_width;
     ctx.scale(s, s);
-    ctx.lineWidth = 0.02;
+    ctx.lineWidth = 0.05;
     for (let i=0; i<params['point_n']; ++i) {
       ctx.beginPath();
       const x=positions[i*2], y=positions[i*2+1];
       // const r = params.c_rep / (fields.R_val[i]*5.0);
-      ctx.arc(x, y, 0.03, 0.0, Math.PI*2);
+      ctx.arc(x, y, 0.075, 0.0, Math.PI*2);
       ctx.stroke();        
     }
     PositionBufferResult.unmap();
