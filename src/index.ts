@@ -129,31 +129,34 @@ async function main() {
     const pass_1 = encoder.beginComputePass();
     pass_1.setPipeline(computeFieldsPipeline);
     pass_1.setBindGroup(0, computeFieldsBindGroup);
-    pass_1.dispatchWorkgroups(params.point_n);
+    pass_1.dispatchWorkgroups(params.point_n/64);
     pass_1.end();
 
     // make a compute pass for updating the positions
     const pass_2 = encoder.beginComputePass();
     pass_2.setPipeline(updatePositionsPipeline);
     pass_2.setBindGroup(0, computeFieldsBindGroup);
-    pass_2.dispatchWorkgroups(params.point_n);
+    pass_2.dispatchWorkgroups(params.point_n/64);
     pass_2.end();
-
-    // copy the result from GPU to the result buffer on the CPU
     encoder.copyBufferToBuffer(PositionBuffer, 0, PositionBufferResult, 0, PositionBufferResult.size);
+
     const commandBuffer = encoder.finish();
     device.queue.submit([commandBuffer]);
-    await PositionBufferResult.mapAsync(GPUMapMode.READ);
-    const positions = new Float32Array(PositionBufferResult.getMappedRange());
+    
     // console.log(positions);
     
     
-    return positions;
+    // return positions;
   }
   
   // ANIMATION
   async function animate(ctx, world_width=45.0, steps_per_frame=5) {
-    let positions = await step();
+    for (let i=0; i<steps_per_frame; ++i) {
+      await step();
+    }
+       
+    await PositionBufferResult.mapAsync(GPUMapMode.READ);
+    const positions = new Float32Array(PositionBufferResult.getMappedRange());
     
     // console.log(positions);
     
@@ -163,12 +166,12 @@ async function main() {
     ctx.translate(width/2, height/2);
     const s = width/world_width;
     ctx.scale(s, s);
-    ctx.lineWidth = 0.1;
+    ctx.lineWidth = 0.02;
     for (let i=0; i<params['point_n']; ++i) {
       ctx.beginPath();
       const x=positions[i*2], y=positions[i*2+1];
       // const r = params.c_rep / (fields.R_val[i]*5.0);
-      ctx.arc(x, y, 0.1, 0.0, Math.PI*2);
+      ctx.arc(x, y, 0.03, 0.0, Math.PI*2);
       ctx.stroke();        
     }
     PositionBufferResult.unmap();
