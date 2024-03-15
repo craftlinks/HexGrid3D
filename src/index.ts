@@ -1,14 +1,15 @@
 
 let params = {
-  mu_k: 6.0,
-  sigma_k: 0.4,
+  mu_k: 4.0,
+  sigma_k: 1.0,
   w_k: 0.022,
-  mu_g: 0.4,
-  sigma_g: 0.100,
+  mu_g: 0.6,
+  sigma_g: 0.15,
   c_rep: 1.0,
   dt: 0.02,
-  point_n: 500
+  point_n: 750
 }
+
 
 // Define the ranges and step sizes for each parameter
 let ranges = {
@@ -19,7 +20,7 @@ let ranges = {
   sigma_k: { min: 0.1, max: 1.0, step: 0.1 },
   c_rep: { min: 0, max: 1, step: 0.1 },
   dt: { min: 0, max: 0.1, step: 0.01 },
-  point_n: { min: 100, max: 1000, step: 50 }
+  point_n: { min: 100, max: 1000, step: 100 }
 
 };
 
@@ -147,7 +148,7 @@ function step() {
   return total_E / params['point_n'];
 }
 
-function animate(ctx, world_width=45.0, steps_per_frame=10) {
+function animate(ctx, world_width=45.0, steps_per_frame=5) {
   for (let i=0; i<steps_per_frame; ++i) step();
   const {width, height} = ctx.canvas;
   ctx.resetTransform();
