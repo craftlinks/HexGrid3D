@@ -1,6 +1,8 @@
 # HexGrid3D
 A 3D Hex Grid with WebGPU 
 
+bun build ./src/index.ts --outdir ./out --minify-whitespace --minify-identifiers --minify-syntax --watch
+
 
 # GPU Specifications
 
