@@ -61,8 +61,8 @@ async function main() {
     const positions = new Float32Array(params['point_n'] * 2);
 
     for (let i = 0; i < params['point_n']; ++i) {
-      positions[i * 2] = (Math.random() - 0.5) * 48;
-      positions[i * 2 + 1] = (Math.random() - 0.5) * 48;
+      positions[i * 2] = (Math.random()-0.5) * 48;
+      positions[i * 2 + 1] = (Math.random()-0.5) * 48;
     }
     // console.log(positions);
     device.queue.writeBuffer(PositionBuffer, 0, positions);

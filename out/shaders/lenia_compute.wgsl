@@ -7,10 +7,10 @@
 
 const c_rep = 1.0;
 const mu_k = 4.0;
-const sigma_k = 1.0;
+const sigma_k = 0.8;
 const w_k = 0.022;
-const mu_g = 0.6;
-const sigma_g = 0.15;
+const mu_g = 0.9;
+const sigma_g = 0.33;
 const dt = 0.055;
 
 struct Repulsion {
