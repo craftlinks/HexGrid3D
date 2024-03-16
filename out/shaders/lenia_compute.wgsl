@@ -11,7 +11,7 @@ const sigma_k = 1.0;
 const w_k = 0.022;
 const mu_g = 0.6;
 const sigma_g = 0.15;
-const dt = 0.025;
+const dt = 0.055;
 
 struct Repulsion {
     rep: f32,
@@ -71,7 +71,7 @@ fn compute_fields( @builtin(global_invocation_id) id: vec3<u32>) {
         }
 
         var r: vec2<f32> = positions[i] - positions[j];
-        let r2: f32 = dot(r, r) + 1e-20;
+        let r2: f32 = sqrt(dot(r, r)) + 1e-20;
         r.x /= r2;
         r.y /= r2;
     

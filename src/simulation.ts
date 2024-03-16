@@ -6,7 +6,7 @@ export let params = {
   sigma_g: 0.15,
   c_rep: 1.0,
   dt: 0.02,
-  point_n: 100 * 64
+  point_n: 40 * 64
 }
 
 
