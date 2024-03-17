@@ -75,16 +75,16 @@ fn compute_fields( @builtin(global_invocation_id) id: vec3<u32>) {
         }
 
         var r: vec2<f32> = positions[i] - positions[j];
-        let r2: f32 = sqrt(dot(r, r)) + 1e-20;
+        let r2: f32 = sqrt(dot(r, r)) + 1e-10;
         r.x /= r2;
         r.y /= r2;
     
-        if (r2 < 1.0) {
+        //if (r2 < 1.0) {
             var repulsion: Repulsion = repulsion_f(r2, p.c_rep);
             rval_buf[i] += repulsion.rep;
             rgrad_buf[i].x += r.x * repulsion.rep_grad;
             rgrad_buf[i].y += r.y * repulsion.rep_grad;
-        }
+        //}
         var lenia_potential: Peak = peak_f(r2, p.mu_k, p.sigma_k, p.w_k);
         uval_buf[i] += lenia_potential.y;
         ugrad_buf[i].x += r.x * lenia_potential.dy;

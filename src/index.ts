@@ -4,13 +4,13 @@ import GUI from 'lil-gui';
 async function main() {
 
   let params = {
-    mu_k: 3.8,
-    sigma_k: 0.4,
-    w_k: 0.037,
-    mu_g: 2.23,
-    sigma_g: 0.1,
-    c_rep: 0.84,
-    dt: 0.01,
+    mu_k: 4.93,
+    sigma_k: 1.45,
+    w_k: 0.006,
+    mu_g: 0.8,
+    sigma_g: 0.21,
+    c_rep: 0.6,
+    dt: 0.17,
     point_n: 50 * 64,
     resetBuffers: () => { resetBuffers(); }
   }
@@ -80,8 +80,8 @@ async function main() {
     const positions = new Float32Array(params['point_n'] * 2);
 
     for (let i = 0; i < params['point_n']; ++i) {
-      positions[i * 2] = (Math.random() - 0.5) * 24;
-      positions[i * 2 + 1] = (Math.random() - 0.5) * 24;
+      positions[i * 2] = (Math.random() - 0.5) * 5;
+      positions[i * 2 + 1] = (Math.random() - 0.5) * 5;
     }
     // console.log(positions);
     device.queue.writeBuffer(PositionBuffer, 0, positions);
@@ -185,7 +185,7 @@ async function main() {
   }
 
   // ANIMATION
-  async function animate(ctx, world_width = 100.0, steps_per_frame = 5) {
+  async function animate(ctx, world_width = 75.0, steps_per_frame = 5) {
     for (let i = 0; i < steps_per_frame; ++i) {
       await step();
     }
@@ -220,7 +220,7 @@ async function main() {
   gui.add(params, "sigma_g").min(0.01).max(10).step(0.01);
   gui.add(params, "c_rep").min(0.01).max(3).step(0.01);
   gui.add(params, "dt").min(0.01).max(0.25).step(0.01);
-  gui.add(params, "point_n").min(64).max(12800).step(64);
+  gui.add(params, "point_n").min(64).max(params.point_n).step(64);
   gui.add(params, "resetBuffers");
   gui.onChange(updateParams);
 
