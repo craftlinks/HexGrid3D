@@ -1,18 +1,19 @@
-import { params } from './simulation';
-
-let params = {
-  mu_k: 4.0,
-  sigma_k: 1.0,
-  w_k: 0.022,
-  mu_g: 0.6,
-  sigma_g: 0.15,
-  c_rep: 1.0,
-  dt: 0.02,
-  point_n: 50 * 64
-}
+import GUI from 'lil-gui';
 
 
 async function main() {
+
+  let params = {
+    mu_k: 3.8,
+    sigma_k: 0.4,
+    w_k: 0.037,
+    mu_g: 2.23,
+    sigma_g: 0.1,
+    c_rep: 0.84,
+    dt: 0.01,
+    point_n: 50 * 64,
+    resetBuffers: () => { resetBuffers(); }
+  }
 
   const adapter = await navigator.gpu?.requestAdapter();
   const device = await adapter?.requestDevice();
@@ -75,20 +76,23 @@ async function main() {
 
   // INITIALIZE BUFFERS
 
-  {
+  let resetBuffers = () => {
     const positions = new Float32Array(params['point_n'] * 2);
 
     for (let i = 0; i < params['point_n']; ++i) {
-      positions[i * 2] = (Math.random()-0.5) * 48;
-      positions[i * 2 + 1] = (Math.random()-0.5) * 48;
+      positions[i * 2] = (Math.random() - 0.5) * 24;
+      positions[i * 2 + 1] = (Math.random() - 0.5) * 24;
     }
     // console.log(positions);
     device.queue.writeBuffer(PositionBuffer, 0, positions);
   }
 
-  {
+  function updateParams() {
     device.queue.writeBuffer(paramsBuffer, 0, new Float32Array(Object.values(params)));
   }
+
+  resetBuffers();
+  updateParams();
 
   // SHADERS
 
@@ -158,14 +162,14 @@ async function main() {
     pass_0.setBindGroup(0, computeFieldsBindGroup);
     pass_0.setBindGroup(1, paramsBindGroup);
     pass_0.dispatchWorkgroups(params.point_n / 64);
-    
+
 
     // make a compute pass for calculating the fields
     pass_0.setPipeline(computeFieldsPipeline);
     pass_0.setBindGroup(0, computeFieldsBindGroup);
     pass_0.setBindGroup(1, paramsBindGroup);
     pass_0.dispatchWorkgroups(params.point_n / 64);
-    
+
 
     // make a compute pass for updating the positions
     pass_0.setPipeline(updatePositionsPipeline);
@@ -208,6 +212,18 @@ async function main() {
     PositionBufferResult.unmap();
   }
 
+  let gui = new GUI();
+  gui.add(params, "mu_k").min(0.01).max(10).step(0.01);
+  gui.add(params, "sigma_k").min(0.01).max(10).step(0.01);
+  gui.add(params, "w_k").min(0.001).max(10).step(0.001);
+  gui.add(params, "mu_g").min(0.01).max(10).step(0.01);
+  gui.add(params, "sigma_g").min(0.01).max(10).step(0.01);
+  gui.add(params, "c_rep").min(0.01).max(3).step(0.01);
+  gui.add(params, "dt").min(0.01).max(0.25).step(0.01);
+  gui.add(params, "point_n").min(64).max(12800).step(64);
+  gui.add(params, "resetBuffers");
+  gui.onChange(updateParams);
+
   // MAIN LOOP
   const ctx = resizeCanvas();
   while (true) {
@@ -229,6 +245,8 @@ function setupCanvas(canvas) {
   // Scale all drawing operations by the dpr, so you
   // don't have to worry about the scaling in your drawing code.
   ctx.scale(dpr, dpr);
+
+
 
   return ctx;
 

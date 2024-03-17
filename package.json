@@ -12,8 +12,9 @@
   "author": "CraftLinks",
   "license": "ISC",
   "dependencies": {
+    "@types/web": "^0.0.139",
     "@webgpu/types": "^0.1.40",
-    "@types/web": "^0.0.139"
+    "lil-gui": "^0.19.2"
   },
   "devDependencies": {
     "@types/bun": "latest"
