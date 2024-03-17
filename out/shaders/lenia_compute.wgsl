@@ -5,13 +5,17 @@
 @binding(3) @group(0) var<storage, read_write> ugrad_buf: array<vec2<f32>>;
 @binding(4) @group(0) var<storage, read_write> positions: array<vec2<f32>>;
 
-const c_rep = 1.0;
-const mu_k = 4.0;
-const sigma_k = 0.8;
-const w_k = 0.022;
-const mu_g = 0.9;
-const sigma_g = 0.33;
-const dt = 0.055;
+struct Params {
+    mu_k: f32,
+    sigma_k: f32,
+    w_k: f32,
+    mu_g: f32,
+    sigma_g: f32,
+    c_rep: f32,
+    dt: f32,
+}
+
+@binding(0) @group(1) var<uniform> p: Params;
 
 struct Repulsion {
     rep: f32,
@@ -50,8 +54,8 @@ fn peak_f(r: f32, mu: f32, sigma: f32, w: f32) -> Peak {
 @compute @workgroup_size(64)
 fn reset_buffers(@builtin(global_invocation_id) id: vec3<u32>) {
     let i = id.x;
-    rval_buf[i] = repulsion_f(0.0 , c_rep).rep;
-    uval_buf[i] = peak_f(0.0, mu_k, sigma_k, w_k).y;
+    rval_buf[i] = repulsion_f(0.0 , p.c_rep).rep;
+    uval_buf[i] = peak_f(0.0, p.mu_k, p.sigma_k, p.w_k).y;
     rgrad_buf[i] = vec2<f32>(0.0, 0.0);
     ugrad_buf[i] = vec2<f32>(0.0, 0.0);
     let pos = positions[i];
@@ -76,12 +80,12 @@ fn compute_fields( @builtin(global_invocation_id) id: vec3<u32>) {
         r.y /= r2;
     
         if (r2 < 1.0) {
-            var repulsion: Repulsion = repulsion_f(r2, c_rep);
+            var repulsion: Repulsion = repulsion_f(r2, p.c_rep);
             rval_buf[i] += repulsion.rep;
             rgrad_buf[i].x += r.x * repulsion.rep_grad;
             rgrad_buf[i].y += r.y * repulsion.rep_grad;
         }
-        var lenia_potential: Peak = peak_f(r2, mu_k, sigma_k, w_k);
+        var lenia_potential: Peak = peak_f(r2, p.mu_k, p.sigma_k, p.w_k);
         uval_buf[i] += lenia_potential.y;
         ugrad_buf[i].x += r.x * lenia_potential.dy;
         ugrad_buf[i].y += r.y * lenia_potential.dy;
@@ -91,10 +95,10 @@ fn compute_fields( @builtin(global_invocation_id) id: vec3<u32>) {
 @compute @workgroup_size(64) 
 fn update_positions(@builtin(global_invocation_id) id: vec3<u32>) {
     let i = id.x;
-    let growth_potential: Peak = peak_f(uval_buf[i], mu_g, sigma_g, 1.0);
+    let growth_potential: Peak = peak_f(uval_buf[i], p.mu_g, p.sigma_g, 1.0);
     let vx = growth_potential.dy * ugrad_buf[i].x - rgrad_buf[i].x;
     let vy = growth_potential.dy * ugrad_buf[i].y - rgrad_buf[i].y;
-    positions[i].x += vx * dt;
-    positions[i].y += vy * dt;
+    positions[i].x += vx * p.dt;
+    positions[i].y += vy * p.dt;
     var rval = rval_buf[i];
 }

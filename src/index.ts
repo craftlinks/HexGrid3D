@@ -1,5 +1,17 @@
 import { params } from './simulation';
 
+let params = {
+  mu_k: 4.0,
+  sigma_k: 1.0,
+  w_k: 0.022,
+  mu_g: 0.6,
+  sigma_g: 0.15,
+  c_rep: 1.0,
+  dt: 0.02,
+  point_n: 50 * 64
+}
+
+
 async function main() {
 
   const adapter = await navigator.gpu?.requestAdapter();
@@ -17,6 +29,12 @@ async function main() {
 
 
   // BUFFERS
+
+  const paramsBuffer = device.createBuffer({
+    size: Object.keys(params).length * 4, // 4 bytes per float
+    usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM,
+  });
+
 
   const RvalBuffer = device.createBuffer({
     label: 'Rval buffer',
@@ -66,6 +84,10 @@ async function main() {
     }
     // console.log(positions);
     device.queue.writeBuffer(PositionBuffer, 0, positions);
+  }
+
+  {
+    device.queue.writeBuffer(paramsBuffer, 0, new Float32Array(Object.values(params)));
   }
 
   // SHADERS
@@ -118,6 +140,13 @@ async function main() {
     ],
   });
 
+  const paramsBindGroup = device.createBindGroup({
+    layout: computeFieldsPipeline.getBindGroupLayout(1),
+    entries: [
+      { binding: 0, resource: { buffer: paramsBuffer } },
+    ],
+  });
+
   // GPU SIMULATION
 
   async function step() {
@@ -127,6 +156,7 @@ async function main() {
     const pass_0 = encoder.beginComputePass();
     pass_0.setPipeline(resetPipeline);
     pass_0.setBindGroup(0, computeFieldsBindGroup);
+    pass_0.setBindGroup(1, paramsBindGroup);
     pass_0.dispatchWorkgroups(params.point_n / 64);
     pass_0.end();
 
@@ -134,6 +164,7 @@ async function main() {
     const pass_1 = encoder.beginComputePass();
     pass_1.setPipeline(computeFieldsPipeline);
     pass_1.setBindGroup(0, computeFieldsBindGroup);
+    pass_1.setBindGroup(1, paramsBindGroup);
     pass_1.dispatchWorkgroups(params.point_n / 64);
     pass_1.end();
 
@@ -141,6 +172,7 @@ async function main() {
     const pass_2 = encoder.beginComputePass();
     pass_2.setPipeline(updatePositionsPipeline);
     pass_2.setBindGroup(0, computeFieldsBindGroup);
+    pass_2.setBindGroup(1, paramsBindGroup);
     pass_2.dispatchWorkgroups(params.point_n / 64);
     pass_2.end();
     encoder.copyBufferToBuffer(PositionBuffer, 0, PositionBufferResult, 0, PositionBufferResult.size);
