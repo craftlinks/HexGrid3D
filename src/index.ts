@@ -158,23 +158,21 @@ async function main() {
     pass_0.setBindGroup(0, computeFieldsBindGroup);
     pass_0.setBindGroup(1, paramsBindGroup);
     pass_0.dispatchWorkgroups(params.point_n / 64);
-    pass_0.end();
+    
 
     // make a compute pass for calculating the fields
-    const pass_1 = encoder.beginComputePass();
-    pass_1.setPipeline(computeFieldsPipeline);
-    pass_1.setBindGroup(0, computeFieldsBindGroup);
-    pass_1.setBindGroup(1, paramsBindGroup);
-    pass_1.dispatchWorkgroups(params.point_n / 64);
-    pass_1.end();
+    pass_0.setPipeline(computeFieldsPipeline);
+    pass_0.setBindGroup(0, computeFieldsBindGroup);
+    pass_0.setBindGroup(1, paramsBindGroup);
+    pass_0.dispatchWorkgroups(params.point_n / 64);
+    
 
     // make a compute pass for updating the positions
-    const pass_2 = encoder.beginComputePass();
-    pass_2.setPipeline(updatePositionsPipeline);
-    pass_2.setBindGroup(0, computeFieldsBindGroup);
-    pass_2.setBindGroup(1, paramsBindGroup);
-    pass_2.dispatchWorkgroups(params.point_n / 64);
-    pass_2.end();
+    pass_0.setPipeline(updatePositionsPipeline);
+    pass_0.setBindGroup(0, computeFieldsBindGroup);
+    pass_0.setBindGroup(1, paramsBindGroup);
+    pass_0.dispatchWorkgroups(params.point_n / 64);
+    pass_0.end();
     encoder.copyBufferToBuffer(PositionBuffer, 0, PositionBufferResult, 0, PositionBufferResult.size);
 
     const commandBuffer = encoder.finish();
