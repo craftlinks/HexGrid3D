@@ -63,38 +63,37 @@ async function main() {
 
   const velocitiesBuffer = device.createBuffer({
     label: 'velocities buffer',
-    size: params.n_agents * 3 * 4,
+    size: params.n_agents * 2 * 4,
     usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
   });
 
   const positionsBuffer = device.createBuffer({
     label: 'positions buffer',
-    size: params.n_agents * 3 * 4,
+    size: params.n_agents * 2 * 4,
     usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
   });
 
   const positionsResultBuffer = device.createBuffer({
     label: 'Position buffer result',
-    size: params.n_agents * 3 * 4,
+    size: params.n_agents * 2 * 4,
     usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ
   });
 
 
   // INITIALIZE BUFFERS
 
-  let resetBuffers = () => {
-    const positions = new Float32Array(params['point_n'] * 3);
-    const velocities = new Float32Array(params['point_n'] * 3);
-    const colors = new Float32Array(params['point_n']);
+  const colors = new Uint32Array(params.n_agents);
+  let resetBuffers = (colors) => {
+    const positions = new Float32Array(params['n_agents'] * 2);
+    const velocities = new Float32Array(params['n_agents'] * 2);
+    
 
-    for (let i = 0; i < params['point_n']; ++i) {
-      positions[i * 3] = (Math.random() - 0.5) * 100;
-      positions[i * 3 + 1] = (Math.random() - 0.5) * 100;
-      positions[i * 3 + 2] = 0.0; // 2D for now
+    for (let i = 0; i < params['n_agents']; ++i) {
+      positions[i * 2] = (Math.random() - 0.5) * 100;
+      positions[i * 2 + 1] = (Math.random() - 0.5) * 100;
 
-      velocities[i * 3] = 0.0;
-      velocities[i * 3 + 1] = 0.0;
-      velocities[i * 3 + 2] = 0.0;
+      velocities[i * 2] = 0.0;
+      velocities[i * 2 + 1] = 0.0;
 
       colors[i] = i % params.K;
     }
@@ -117,7 +116,7 @@ async function main() {
     device.queue.writeBuffer(paramsBuffer, 0, new Float32Array(Object.values(params)));
   }
 
-  resetBuffers();
+  resetBuffers(colors);
   updateParams();
 
   // SHADERS
@@ -189,7 +188,7 @@ async function main() {
     pass_1.setBindGroup(1, paramsBindGroup);
     pass_1.dispatchWorkgroups(params.n_agents / 64);
     pass_1.end();
-    // encoder.copyBufferToBuffer(positionsBuffer, 0, positionsResultBuffer, 0, positionsResultBuffer.size);
+    encoder.copyBufferToBuffer(positionsBuffer, 0, positionsResultBuffer, 0, positionsResultBuffer.size);
 
     const commandBuffer = encoder.finish();
     device.queue.submit([commandBuffer]);
@@ -202,8 +201,8 @@ async function main() {
       await step();
     }
 
-    // await positionsResultBuffer.mapAsync(GPUMapMode.READ);
-    // const positions = new Float32Array(positionsResultBuffer.getMappedRange());
+    await positionsResultBuffer.mapAsync(GPUMapMode.READ);
+    const positions = new Float32Array(positionsResultBuffer.getMappedRange());
 
     const { width, height } = ctx.canvas;
     ctx.resetTransform();
@@ -211,17 +210,17 @@ async function main() {
     ctx.translate(width / 2, height / 2);
     const s = width / world_width;
     ctx.scale(s, s);
-    ctx.lineWidth = 0.05;
-    for (let i = 0; i < params['point_n']; ++i) {
+    //ctx.lineWidth = 0.05;
+    for (let i = 0; i < params['n_agents']; ++i) {
       ctx.beginPath();
-      const x = positions[i * 3], y = positions[i * 3 + 1];
+      const x = positions[i * 2], y = positions[i * 2 + 1];
 
       ctx.arc(x, y, 0.075, 0.0, Math.PI * 2);
-      ctz.fillStyle = `hsl(${colors[i] * 360 / params.K}, 100%, 50%)`;
+      ctx.fillStyle = `hsl(${colors[i] * 360 / params.K}, 100%, 50%)`;
       ctx.fill();
-      ctx.stroke();
+      //ctx.stroke();
     }
-    // positionsResultBuffer.unmap();
+    positionsResultBuffer.unmap();
   }
 
   let gui = new GUI();
