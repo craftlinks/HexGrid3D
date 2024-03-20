@@ -7,14 +7,17 @@ async function main() {
     repulsion: 2.0,
     inertia: 0.1,
     dt: 0.1,
-    n_agents: 30*10,
+    n_agents: 64*10,
     K: 6,
     world_extent: 15.0,
     resetBuffers: () => { resetBuffers(); }
-  }
+  } 
+
 
   const adapter = await navigator.gpu?.requestAdapter();
-  const device = await adapter?.requestDevice();
+  let device = await adapter?.requestDevice();
+  
+
   if (!device) {
     fail('need a browser that supports WebGPU');
     return;
@@ -22,6 +25,16 @@ async function main() {
   else {
     console.log('WebGPU is supported');
   }
+
+  // Use lost to handle lost devices
+  device.lost.then((info) => {
+    console.error(`WebGPU device was lost: ${info.message}`);
+    device = null;
+
+    if (info.reason !== "destroyed") {
+      main();
+    }
+  });
 
   var canvas = document.querySelector('canvas')
   const compute_shader = await fetch('./shaders/plife_compute.wgsl').then((response) => response.text());
@@ -167,14 +180,16 @@ async function main() {
     pass_0.setBindGroup(1, paramsBindGroup);
     pass_0.dispatchWorkgroups(params.n_agents / 64);
 
-
-    // make a compute pass for updating the positions
-    pass_0.setPipeline(updatePositionsPipeline);
-    pass_0.setBindGroup(0, computeVelocitiesBindGroup);
-    pass_0.setBindGroup(1, paramsBindGroup);
-    pass_0.dispatchWorkgroups(params.n_agents / 64);
     pass_0.end();
-    encoder.copyBufferToBuffer(positionsBuffer, 0, positionsResultBuffer, 0, positionsResultBuffer.size);
+
+    const pass_1 = encoder.beginComputePass();
+    // make a compute pass for updating the positions
+    pass_1.setPipeline(updatePositionsPipeline);
+    pass_1.setBindGroup(0, computeVelocitiesBindGroup);
+    pass_1.setBindGroup(1, paramsBindGroup);
+    pass_1.dispatchWorkgroups(params.n_agents / 64);
+    pass_1.end();
+    // encoder.copyBufferToBuffer(positionsBuffer, 0, positionsResultBuffer, 0, positionsResultBuffer.size);
 
     const commandBuffer = encoder.finish();
     device.queue.submit([commandBuffer]);
@@ -187,10 +202,8 @@ async function main() {
       await step();
     }
 
-    await positionsResultBuffer.mapAsync(GPUMapMode.READ);
-    const positions = new Float32Array(positionsResultBuffer.getMappedRange());
-
-    // console.log(positions);
+    // await positionsResultBuffer.mapAsync(GPUMapMode.READ);
+    // const positions = new Float32Array(positionsResultBuffer.getMappedRange());
 
     const { width, height } = ctx.canvas;
     ctx.resetTransform();
@@ -201,14 +214,14 @@ async function main() {
     ctx.lineWidth = 0.05;
     for (let i = 0; i < params['point_n']; ++i) {
       ctx.beginPath();
-      const x = positions[i * 2], y = positions[i * 2 + 1];
+      const x = positions[i * 3], y = positions[i * 3 + 1];
 
       ctx.arc(x, y, 0.075, 0.0, Math.PI * 2);
       ctz.fillStyle = `hsl(${colors[i] * 360 / params.K}, 100%, 50%)`;
       ctx.fill();
       ctx.stroke();
     }
-    positionsResultBuffer.unmap();
+    // positionsResultBuffer.unmap();
   }
 
   let gui = new GUI();
