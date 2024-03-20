@@ -4,14 +4,12 @@ import GUI from 'lil-gui';
 async function main() {
 
   let params = {
-    mu_k: 3.93,
-    sigma_k: 1.35,
-    w_k: 0.022,
-    mu_g: 0.4,
-    sigma_g: 0.35,
-    c_rep: 0.7,
-    dt: 0.17,
-    point_n: 200 * 64,
+    repulsion: 2.0,
+    inertia: 0.1,
+    dt: 0.1,
+    n_agents: 30*10,
+    K: 6,
+    world_extent: 15.0,
     resetBuffers: () => { resetBuffers(); }
   }
 
@@ -26,50 +24,45 @@ async function main() {
   }
 
   var canvas = document.querySelector('canvas')
-  const compute_shader = await fetch('./shaders/lenia_compute.wgsl').then((response) => response.text());
+  const compute_shader = await fetch('./shaders/plife_compute.wgsl').then((response) => response.text());
 
 
   // BUFFERS
 
   const paramsBuffer = device.createBuffer({
-    size: Object.keys(params).length * 4, // 4 bytes per float
+    label: 'params buffer',
+    size: (Object.keys(params).length) * 4, // 4 bytes per float
     usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM,
   });
 
 
-  const RvalBuffer = device.createBuffer({
-    label: 'Rval buffer',
-    size: params.point_n * 4,
-    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
+  const FBuffer = device.createBuffer({
+    label: 'F buffer',
+    size: params.K * params.K * 4,
+    usage:  GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+  }); // attraction/repulsion matrix
+
+  const colorsBuffer = device.createBuffer({
+    label: 'colors buffer',
+    size: params.n_agents * 4,
+    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+  }); // agent color
+
+  const velocitiesBuffer = device.createBuffer({
+    label: 'velocities buffer',
+    size: params.n_agents * 3 * 4,
+    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
   });
 
-  const UvalBuffer = device.createBuffer({
-    label: 'Uval buffer',
-    size: params.point_n * 4,
-    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
+  const positionsBuffer = device.createBuffer({
+    label: 'positions buffer',
+    size: params.n_agents * 3 * 4,
+    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
   });
 
-  const RgradBuffer = device.createBuffer({
-    label: 'Rgrad buffer',
-    size: params.point_n * 2 * 4,
-    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
-  });
-
-  const UgradBuffer = device.createBuffer({
-    label: 'Ugrad buffer',
-    size: params.point_n * 2 * 4,
-    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
-  });
-
-  const PositionBuffer = device.createBuffer({
-    label: 'Position buffer',
-    size: params.point_n * 2 * 4,
-    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST,
-  });
-
-  const PositionBufferResult = device.createBuffer({
+  const positionsResultBuffer = device.createBuffer({
     label: 'Position buffer result',
-    size: params.point_n * 2 * 4,
+    size: params.n_agents * 3 * 4,
     usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ
   });
 
@@ -77,14 +70,34 @@ async function main() {
   // INITIALIZE BUFFERS
 
   let resetBuffers = () => {
-    const positions = new Float32Array(params['point_n'] * 2);
+    const positions = new Float32Array(params['point_n'] * 3);
+    const velocities = new Float32Array(params['point_n'] * 3);
+    const colors = new Float32Array(params['point_n']);
 
     for (let i = 0; i < params['point_n']; ++i) {
-      positions[i * 2] = (Math.random() - 0.5) * 100;
-      positions[i * 2 + 1] = (Math.random() - 0.5) * 100;
+      positions[i * 3] = (Math.random() - 0.5) * 100;
+      positions[i * 3 + 1] = (Math.random() - 0.5) * 100;
+      positions[i * 3 + 2] = 0.0; // 2D for now
+
+      velocities[i * 3] = 0.0;
+      velocities[i * 3 + 1] = 0.0;
+      velocities[i * 3 + 2] = 0.0;
+
+      colors[i] = i % params.K;
     }
+
     // console.log(positions);
-    device.queue.writeBuffer(PositionBuffer, 0, positions);
+    device.queue.writeBuffer(positionsBuffer, 0, positions);
+    device.queue.writeBuffer(velocitiesBuffer, 0, velocities);
+    device.queue.writeBuffer(colorsBuffer, 0, colors);
+  }
+
+  // set the F matrix
+  const F = new Float32Array(params.K * params.K);
+  for (let i = 0; i < params.K; ++i) {
+    for (let j = 0; j < params.K; ++j) {
+      F[i * params.K + j] = (i == j) + 0.1*(i==(j+1)%(params.K))
+    }
   }
 
   function updateParams() {
@@ -97,28 +110,19 @@ async function main() {
   // SHADERS
 
   const computeShader = device.createShaderModule({
-    label: 'Lenia Compute Shader',
+    label: 'Particle Life Compute Shader',
     code: compute_shader,
   });
 
 
   // PIPELINES
 
-  const resetPipeline = device.createComputePipeline({
-    label: 'reset pipeline',
+  const computeVelocitiesPipeline = device.createComputePipeline({
+    label: 'compute velocities pipeline',
     layout: 'auto',
     compute: {
       module: computeShader,
-      entryPoint: 'reset_buffers',
-    },
-  });
-
-  const computeFieldsPipeline = device.createComputePipeline({
-    label: 'compute fields pipeline',
-    layout: 'auto',
-    compute: {
-      module: computeShader,
-      entryPoint: 'compute_fields',
+      entryPoint: 'update_velocities',
     },
   });
 
@@ -133,19 +137,18 @@ async function main() {
 
   // BIND GROUPS
 
-  const computeFieldsBindGroup = device.createBindGroup({
-    layout: computeFieldsPipeline.getBindGroupLayout(0),
+  const computeVelocitiesBindGroup = device.createBindGroup({
+    layout: computeVelocitiesPipeline.getBindGroupLayout(0),
     entries: [
-      { binding: 0, resource: { buffer: RvalBuffer } },
-      { binding: 1, resource: { buffer: UvalBuffer } },
-      { binding: 2, resource: { buffer: RgradBuffer } },
-      { binding: 3, resource: { buffer: UgradBuffer } },
-      { binding: 4, resource: { buffer: PositionBuffer } },
+      { binding: 0, resource: { buffer: colorsBuffer } },
+      { binding: 1, resource: { buffer: velocitiesBuffer } },
+      { binding: 2, resource: { buffer: positionsBuffer } },
+      { binding: 3, resource: { buffer: FBuffer } },
     ],
   });
 
   const paramsBindGroup = device.createBindGroup({
-    layout: computeFieldsPipeline.getBindGroupLayout(1),
+    layout: computeVelocitiesPipeline.getBindGroupLayout(1),
     entries: [
       { binding: 0, resource: { buffer: paramsBuffer } },
     ],
@@ -158,26 +161,20 @@ async function main() {
     const encoder = device.createCommandEncoder({ label: 'our command encoder' });
 
     const pass_0 = encoder.beginComputePass();
-    pass_0.setPipeline(resetPipeline);
-    pass_0.setBindGroup(0, computeFieldsBindGroup);
+    // make a compute pass for calculating the new velocities
+    pass_0.setPipeline(computeVelocitiesPipeline);
+    pass_0.setBindGroup(0, computeVelocitiesBindGroup);
     pass_0.setBindGroup(1, paramsBindGroup);
-    pass_0.dispatchWorkgroups(params.point_n / 64);
-
-
-    // make a compute pass for calculating the fields
-    pass_0.setPipeline(computeFieldsPipeline);
-    pass_0.setBindGroup(0, computeFieldsBindGroup);
-    pass_0.setBindGroup(1, paramsBindGroup);
-    pass_0.dispatchWorkgroups(params.point_n / 64);
+    pass_0.dispatchWorkgroups(params.n_agents / 64);
 
 
     // make a compute pass for updating the positions
     pass_0.setPipeline(updatePositionsPipeline);
-    pass_0.setBindGroup(0, computeFieldsBindGroup);
+    pass_0.setBindGroup(0, computeVelocitiesBindGroup);
     pass_0.setBindGroup(1, paramsBindGroup);
-    pass_0.dispatchWorkgroups(params.point_n / 64);
+    pass_0.dispatchWorkgroups(params.n_agents / 64);
     pass_0.end();
-    encoder.copyBufferToBuffer(PositionBuffer, 0, PositionBufferResult, 0, PositionBufferResult.size);
+    encoder.copyBufferToBuffer(positionsBuffer, 0, positionsResultBuffer, 0, positionsResultBuffer.size);
 
     const commandBuffer = encoder.finish();
     device.queue.submit([commandBuffer]);
@@ -185,13 +182,13 @@ async function main() {
   }
 
   // ANIMATION
-  async function animate(ctx, world_width = 150.0, steps_per_frame = 5) {
+  async function animate(ctx, world_width = params.world_extent, steps_per_frame = 1) {
     for (let i = 0; i < steps_per_frame; ++i) {
       await step();
     }
 
-    await PositionBufferResult.mapAsync(GPUMapMode.READ);
-    const positions = new Float32Array(PositionBufferResult.getMappedRange());
+    await positionsResultBuffer.mapAsync(GPUMapMode.READ);
+    const positions = new Float32Array(positionsResultBuffer.getMappedRange());
 
     // console.log(positions);
 
@@ -205,22 +202,20 @@ async function main() {
     for (let i = 0; i < params['point_n']; ++i) {
       ctx.beginPath();
       const x = positions[i * 2], y = positions[i * 2 + 1];
-      // const r = params.c_rep / (fields.R_val[i]*5.0);
+
       ctx.arc(x, y, 0.075, 0.0, Math.PI * 2);
+      ctz.fillStyle = `hsl(${colors[i] * 360 / params.K}, 100%, 50%)`;
+      ctx.fill();
       ctx.stroke();
     }
-    PositionBufferResult.unmap();
+    positionsResultBuffer.unmap();
   }
 
   let gui = new GUI();
-  gui.add(params, "mu_k").min(0.01).max(10).step(0.01);
-  gui.add(params, "sigma_k").min(0.01).max(10).step(0.01);
-  gui.add(params, "w_k").min(0.001).max(10).step(0.001);
-  gui.add(params, "mu_g").min(0.01).max(10).step(0.01);
-  gui.add(params, "sigma_g").min(0.01).max(10).step(0.01);
-  gui.add(params, "c_rep").min(0.01).max(3).step(0.01);
-  gui.add(params, "dt").min(0.01).max(0.25).step(0.01);
-  gui.add(params, "point_n").min(64).max(params.point_n).step(64);
+  gui.add(params, "repulsion").min(0.1).max(5).step(0.1);
+  gui.add(params, "inertia").min(0.01).max(1).step(0.01);
+  gui.add(params, "dt").min(0.01).max(1).step(0.01);
+  gui.add(params, "world_extent").min(5).max(30).step(1);
   gui.add(params, "resetBuffers");
   gui.onChange(updateParams);
 
