@@ -4,14 +4,14 @@ import GUI from 'lil-gui';
 async function main() {
 
   let params = {
-    mu_k: 4.93,
-    sigma_k: 1.45,
-    w_k: 0.006,
-    mu_g: 0.8,
-    sigma_g: 0.21,
-    c_rep: 0.6,
+    mu_k: 3.93,
+    sigma_k: 1.35,
+    w_k: 0.022,
+    mu_g: 0.4,
+    sigma_g: 0.35,
+    c_rep: 0.7,
     dt: 0.17,
-    point_n: 50 * 64,
+    point_n: 200 * 64,
     resetBuffers: () => { resetBuffers(); }
   }
 
@@ -80,8 +80,8 @@ async function main() {
     const positions = new Float32Array(params['point_n'] * 2);
 
     for (let i = 0; i < params['point_n']; ++i) {
-      positions[i * 2] = (Math.random() - 0.5) * 5;
-      positions[i * 2 + 1] = (Math.random() - 0.5) * 5;
+      positions[i * 2] = (Math.random() - 0.5) * 100;
+      positions[i * 2 + 1] = (Math.random() - 0.5) * 100;
     }
     // console.log(positions);
     device.queue.writeBuffer(PositionBuffer, 0, positions);
@@ -185,7 +185,7 @@ async function main() {
   }
 
   // ANIMATION
-  async function animate(ctx, world_width = 75.0, steps_per_frame = 5) {
+  async function animate(ctx, world_width = 150.0, steps_per_frame = 5) {
     for (let i = 0; i < steps_per_frame; ++i) {
       await step();
     }
