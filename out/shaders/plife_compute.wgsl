@@ -36,8 +36,9 @@ fn f_index(x: f32, y: f32) -> u32 {
 @compute @workgroup_size(64)
 fn update_velocities(@builtin(global_invocation_id) id: vec3<u32>) {
     let i = id.x;
-    var force: vec2<f32> = vec2(0.0, 0.0);
-    for (var j: u32 = 0; j < p.n_agents; j = j +1) {
+    var force_x: f32 = 0.0;
+    var force_y: f32 = 0.0;
+    for (var j: u32 = 0; j < arrayLength(&positions); j = j +1) {
         if (i == j) {continue;}
         var dpos: vec2<f32> = wrap(positions[j] - positions[i]);
         let r = length(dpos);
@@ -46,14 +47,16 @@ fn update_velocities(@builtin(global_invocation_id) id: vec3<u32>) {
         let rep = max(1.0-r, 0.0)*p.repulsion;
         let f = F[f_index(colors[i],colors[j])];
         let att = 0.5*max(1.0-abs(r-2.0), 0.0); //f*max(1.0-abs(r-2.0), 0.0);
-        let j_force: vec2<f32> = dpos.xy * (att - rep);
-        force += dpos * (att - rep);
+        let j_force_x: f32 = dpos.x * (att - rep);
+        let j_force_y: f32 = dpos.y * (att - rep);
+        force_x = force_x + j_force_x;
+        force_y = force_y + j_force_y;
     }
-    let f_x = force.x;
-    let f_y = force.y;
-    let dv: vec2<f32> = vec2(0.1 * p.inertia * p.dt);  //* force ; ??? Instal new GPU drivers ???
+    let dv_x = 0.1 * p.inertia *force_x* p.dt;
+    let dv_y = 0.1 * p.inertia *force_y* p.dt;  //* force ; ??? Instal new GPU drivers ???
     
-    velocities[i] = velocities[i] + dv;
+    velocities[i].x = velocities[i].x + dv_x;
+    velocities[i].y = velocities[i].y + dv_y;
 }
 
 

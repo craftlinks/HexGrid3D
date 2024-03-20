@@ -5,11 +5,11 @@ async function main() {
 
   let params = {
     repulsion: 2.0,
-    inertia: 0.1,
-    dt: 0.1,
-    n_agents: 64*10,
+    inertia: 0.5,
+    dt: 0.08,
+    n_agents: 64*5,
     K: 6,
-    world_extent: 15.0,
+    world_extent: 25.0,
     resetBuffers: () => { resetBuffers(); }
   } 
 
@@ -108,7 +108,9 @@ async function main() {
   const F = new Float32Array(params.K * params.K);
   for (let i = 0; i < params.K; ++i) {
     for (let j = 0; j < params.K; ++j) {
-      F[i * params.K + j] = (i == j) + 0.1*(i==(j+1)%(params.K))
+      let base = (i == j) ? 1 : 0;
+      let base_2 = (i == j + 1) ? 1 : 0; 
+      F[i * params.K + j] = base + 0.1*(base_2%(params.K))
     }
   }
 
