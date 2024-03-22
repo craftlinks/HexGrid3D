@@ -11,7 +11,8 @@ function makeRandomMatrix() {
   for (let i = 0; i < m; i++) {
     const row = [];
     for (let j = 0; j < m; j++) {
-      row.push(Math.random() * 2 - 1);
+      i == j ? row.push(1) : (i == j + 1) ? row.push(0.1) : row.push(0);
+      // row.push(Math.random() * 2 - 1);
     }
     matrix.push(row);
   }
@@ -40,7 +41,7 @@ for (let i = 0; i < n; i++) {
 }
 
 function force(r, a) {
-  const beta = 0.1;
+  const beta = 0.3;
   if (r < beta) {
     return r/beta - 1;
   } else if (beta <= r && r <= 1) {
@@ -116,8 +117,8 @@ function animate(ctx, steps_per_frame=1) {
   for (let i=0; i<n; ++i) {
     ctx.beginPath();
     const x=(positionsX[i]) * width , y=(positionsY[i]) * height
-    ctx.arc(x, y, 3.6, 0.0, Math.PI*2);
-    ctx.fillStyle = `hsl(${colors[i]*360/m}, 100%, 40%)`;
+    ctx.arc(x, y, 6.0, 0.0, Math.PI*2);
+    ctx.fillStyle = `hsl(${colors[i]*360/m}, 100%, 50%)`;
     ctx.fill();
     ctx.stroke();        
   }
