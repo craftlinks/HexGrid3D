@@ -3,7 +3,7 @@ const dt = 0.01;
 const n = 1500;
 const frictionFactor = Math.pow(0.5, dt/0.04);
 const rMax = 0.25;
-const m = 6;
+const m = 8;
 const matrix = makeRandomMatrix();
 
 function makeRandomMatrix() {
@@ -11,8 +11,9 @@ function makeRandomMatrix() {
   for (let i = 0; i < m; i++) {
     const row = [];
     for (let j = 0; j < m; j++) {
-      i == j ? row.push(1) : (i == j + 1) ? row.push(0.1) : row.push(0);
+      // i == j ? row.push(1) : (i == j + 1) ? row.push(0.1) : row.push(0);
       // row.push(Math.random() * 2 - 1);
+      row.push(((i==(j-3)%m) ? 1 : (i == (j+1)%m)? -1: (i == j)? 1: 0));
     }
     matrix.push(row);
   }
@@ -41,7 +42,7 @@ for (let i = 0; i < n; i++) {
 }
 
 function force(r, a) {
-  const beta = 0.3;
+  const beta = 0.2;
   if (r < beta) {
     return r/beta - 1;
   } else if (beta <= r && r <= 1) {
@@ -85,9 +86,9 @@ function updateParticles() {
         totalForceZ += f * dz / r;
       }
     }
-    totalForceX *= rMax * 10;
-    totalForceY *= rMax * 10;
-    totalForceZ *= rMax * 10;
+    totalForceX *= rMax * 5;
+    totalForceY *= rMax * 5;
+    totalForceZ *= rMax * 5;
 
     velocitiesX[i] = velocitiesX[i] * frictionFactor + totalForceX * dt;
     velocitiesY[i] = velocitiesY[i] * frictionFactor + totalForceY * dt;
