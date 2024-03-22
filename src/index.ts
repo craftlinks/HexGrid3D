@@ -1,9 +1,9 @@
 
-const dt = 0.01;
+const dt = 0.02;
 const n = 1500;
 const frictionFactor = Math.pow(0.5, dt/0.04);
 const rMax = 0.25;
-const m = 8;
+const m = 24;
 const matrix = makeRandomMatrix();
 
 function makeRandomMatrix() {
