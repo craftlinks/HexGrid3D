@@ -40,7 +40,7 @@ for (let i = 0; i < n; i++) {
 }
 
 function force(r, a) {
-  const beta = 0.3;
+  const beta = 0.1;
   if (r < beta) {
     return r/beta - 1;
   } else if (beta <= r && r <= 1) {
@@ -117,7 +117,7 @@ function animate(ctx, steps_per_frame=1) {
     ctx.beginPath();
     const x=(positionsX[i]) * width , y=(positionsY[i]) * height
     ctx.arc(x, y, 3.6, 0.0, Math.PI*2);
-    ctx.fillStyle = `hsl(${colors[i]*360/m}, 90%, 65%)`;
+    ctx.fillStyle = `hsl(${colors[i]*360/m}, 100%, 40%)`;
     ctx.fill();
     ctx.stroke();        
   }
