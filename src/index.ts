@@ -1,6 +1,6 @@
 
 const dt = 0.01;
-const n = 2000;
+const n = 1500;
 const frictionFactor = Math.pow(0.5, dt/0.04);
 const rMax = 0.1;
 const m = 6;
@@ -54,8 +54,19 @@ function updateParticles() {
     
     for (let j = 0; j < n; j++) {
       if (i == j) continue;
-      const dx = positionsX[j] - positionsX[i];
-      const dy = positionsY[j] - positionsY[i];
+      let dx = positionsX[j] - positionsX[i];
+      let dy = positionsY[j] - positionsY[i];
+      // if (dx > 0.5) dx -= 1;
+      // if (dx < -0.5) dx += 1;
+      // if (dy > 0.5) dy -= 1;
+      // if (dy < -0.5) dy += 1;
+      if (Math.abs(dx) > 0.5) {
+        dx = dx - Math.sign(dx);
+      }
+      if (Math.abs(dy) > 0.5) {
+        dy = dy - Math.sign(dy);
+      }
+      
       const r = Math.sqrt(dx*dx + dy*dy);
       if (r > 0 && r < rMax) {
         const f = force(r / rMax, matrix[colors[i]][colors[j]]);
@@ -74,6 +85,9 @@ function updateParticles() {
   for (let i = 0; i < n; i++) {
     positionsX[i] += velocitiesX[i] * dt;
     positionsY[i] += velocitiesY[i] * dt;
+
+    positionsX[i] = (positionsX[i] + 1) % 1;
+    positionsY[i] = (positionsY[i] + 1) % 1;
   }
 }
 
