@@ -2,7 +2,7 @@
 const dt = 0.01;
 const n = 1500;
 const frictionFactor = Math.pow(0.5, dt/0.04);
-const rMax = 0.1;
+const rMax = 0.25;
 const m = 6;
 const matrix = makeRandomMatrix();
 
@@ -23,16 +23,20 @@ console.log(matrix);
 const colors = new Int32Array(n);
 const positionsX = new Float32Array(n);
 const positionsY = new Float32Array(n);
+const positionsZ = new Float32Array(n);
 const velocitiesX = new Float32Array(n);
 const velocitiesY = new Float32Array(n);
+const velocitiesZ = new Float32Array(n);
 
 
 for (let i = 0; i < n; i++) {
   colors[i] = Math.floor(Math.random() * m); // 0 - (m-1)
-  positionsX[i] = Math.random(); // 0-1
-  positionsY[i] = Math.random(); // 0-1
+  positionsX[i] = Math.random(); // -1:1
+  positionsY[i] = Math.random(); // -1:1
+  positionsZ[i] = Math.random(); // -1:1
   velocitiesX[i] = 0.0;
   velocitiesY[i] = 0.0;
+  velocitiesZ[i] = 0.0;
 }
 
 function force(r, a) {
@@ -51,11 +55,13 @@ function updateParticles() {
   for (let i = 0; i < n; i++) {
     let totalForceX = 0.0;
     let totalForceY = 0.0;
+    let totalForceZ = 0.0;
     
     for (let j = 0; j < n; j++) {
       if (i == j) continue;
       let dx = positionsX[j] - positionsX[i];
       let dy = positionsY[j] - positionsY[i];
+      let dz = positionsZ[j] - positionsZ[i];
       // if (dx > 0.5) dx -= 1;
       // if (dx < -0.5) dx += 1;
       // if (dy > 0.5) dy -= 1;
@@ -66,28 +72,36 @@ function updateParticles() {
       if (Math.abs(dy) > 0.5) {
         dy = dy - Math.sign(dy);
       }
+      if (Math.abs(dz) > 0.5) {
+        dz = dz - Math.sign(dz);
+      }
       
-      const r = Math.sqrt(dx*dx + dy*dy);
+      const r = Math.sqrt(dx*dx + dy*dy + dz*dz);
       if (r > 0 && r < rMax) {
         const f = force(r / rMax, matrix[colors[i]][colors[j]]);
         totalForceX += f * dx / r;
         totalForceY += f * dy / r; 
+        totalForceZ += f * dz / r;
       }
     }
     totalForceX *= rMax * 10;
     totalForceY *= rMax * 10;
+    totalForceZ *= rMax * 10;
 
     velocitiesX[i] = velocitiesX[i] * frictionFactor + totalForceX * dt;
     velocitiesY[i] = velocitiesY[i] * frictionFactor + totalForceY * dt;
+    velocitiesZ[i] = velocitiesZ[i] * frictionFactor + totalForceZ * dt;
   }
 
   // update positions
   for (let i = 0; i < n; i++) {
     positionsX[i] += velocitiesX[i] * dt;
     positionsY[i] += velocitiesY[i] * dt;
+    positionsZ[i] += velocitiesZ[i] * dt;
 
     positionsX[i] = (positionsX[i] + 1) % 1;
     positionsY[i] = (positionsY[i] + 1) % 1;
+    positionsZ[i] = (positionsZ[i] + 1) % 1;
   }
 }
 
@@ -101,9 +115,9 @@ function animate(ctx, steps_per_frame=1) {
   ctx.fillRect(0, 0, width, height);
   for (let i=0; i<n; ++i) {
     ctx.beginPath();
-    const x=positionsX[i]*width , y=positionsY[i]*height;
-    ctx.arc(x, y, 5, 0.0, Math.PI*2);
-    ctx.fillStyle = `hsl(${colors[i]*360/m}, 100%, 50%)`;
+    const x=(positionsX[i]) * width , y=(positionsY[i]) * height
+    ctx.arc(x, y, 3.6, 0.0, Math.PI*2);
+    ctx.fillStyle = `hsl(${colors[i]*360/m}, 90%, 65%)`;
     ctx.fill();
     ctx.stroke();        
   }
