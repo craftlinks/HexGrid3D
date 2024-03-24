@@ -1,11 +1,11 @@
 
 async function main() {
-
+  let dt = 0.01;
   let params = {
-    dt: 0.02,
-    n: 1500,
+    dt: dt,
+    n: 64 * 150,
     frictionFactor: Math.pow(0.5, dt/0.04),
-    rMax: 0.25,
+    rMax: 0.2,
     m: 6,  
   }
 
@@ -38,15 +38,25 @@ async function main() {
 
   // Simulation setup
 
-  // set the F matrix
-  const F = new Float32Array(params.K * params.K);
-  for (let i = 0; i < params.K; ++i) {
-    for (let j = 0; j < params.K; ++j) {
-      let base = (i == j) ? 1 : 0;
-      let base_2 = (i == j + 1) ? 1 : 0; 
-      F[i + params.K * j] = base + 0.1*(base_2%(params.K))
+  // // set the F matrix
+  // const F = new Float32Array(params.m * params.m);
+  // for (let i = 0; i < params.m; ++i) {
+  //   for (let j = 0; j < params.m; ++j) {
+  //     i == j ? F. : (i == j + 1) ? row.push(0.1) : row.push(0);
+  //     F[i + params.m * j] = base + 0.1*(base_2%(params.m))
+  //   }
+  // }
+  let matrix = [];
+  for (let i = 0; i < params.m; i++) {
+    const row = [];
+    for (let j = 0; j < params.m; j++) {
+      i == j ? row.push(1) : (i == (j + 1)%params.m) ? row.push(0.1) : row.push(0);
+      // row.push(Math.random() * 2 - 1);
     }
+    matrix.push(row);
   }
+  const F = new Float32Array(matrix.flat());
+  console.log(F);
 
   const colors = new Uint32Array(params.n);
   const positions = new Float32Array(params.n * 3 );
@@ -72,31 +82,31 @@ async function main() {
 
   const FBuffer = device.createBuffer({
     label: 'F buffer',
-    size: params.K * params.K * 4,
+    size: params.m * params.m * 4,
     usage:  GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
   }); // attraction/repulsion matrix
 
   const colorsBuffer = device.createBuffer({
     label: 'colors buffer',
-    size: params.n_agents * 4,
+    size: params.n * 4,
     usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
   }); // agent color
 
   const velocitiesBuffer = device.createBuffer({
     label: 'velocities buffer',
-    size: params.n_agents * 3 * 4,
+    size: params.n * 3 * 4,
     usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
   });
 
   const positionsBuffer = device.createBuffer({
     label: 'positions buffer',
-    size: params.n_agents * 3 * 4,
+    size: params.n * 3 * 4,
     usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
   });
 
   const positionsResultBuffer = device.createBuffer({
     label: 'Position buffer result',
-    size: params.n_agents * 3 * 4,
+    size: params.n * 3 * 4,
     usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ
   });
 
@@ -159,54 +169,56 @@ async function main() {
 
   // GPU SIMULATION
 
-  async function step() {
+  function step(encoder) {
     // make a command encoder to start encoding commands
-    const encoder = device.createCommandEncoder({ label: 'our command encoder' });
+    
 
     const pass_0 = encoder.beginComputePass();
     // make a compute pass for calculating the new velocities
     pass_0.setPipeline(computeVelocitiesPipeline);
     pass_0.setBindGroup(0, computeVelocitiesBindGroup);
     pass_0.setBindGroup(1, paramsBindGroup);
-    pass_0.dispatchWorkgroups(params.n_agents / 64);
-
+    pass_0.dispatchWorkgroups(params.n / 64);
     pass_0.end();
 
-    const pass_1 = encoder.beginComputePass();
-    // make a compute pass for updating the positions
-    pass_1.setPipeline(updatePositionsPipeline);
-    pass_1.setBindGroup(0, computeVelocitiesBindGroup);
-    pass_1.setBindGroup(1, paramsBindGroup);
-    pass_1.dispatchWorkgroups(params.n_agents / 64);
-    pass_1.end();
-    encoder.copyBufferToBuffer(positionsBuffer, 0, positionsResultBuffer, 0, positionsResultBuffer.size);
 
-    const commandBuffer = encoder.finish();
-    device.queue.submit([commandBuffer]);
+    // make a compute pass for updating the positions
+    // const pass_1 = encoder.beginComputePass();
+    // pass_1.setPipeline(updatePositionsPipeline);
+    // pass_1.setBindGroup(0, computeVelocitiesBindGroup);
+    // pass_1.setBindGroup(1, paramsBindGroup);
+    // pass_1.dispatchWorkgroups(params.n / 64);
+    // pass_1.end();
+    
+
+    
   }
 
   // -- RENDERING ---
 
   async function animate(ctx, steps_per_frame=1) {
-    for (let i=0; i<steps_per_frame; ++i) await step();
+    const encoder = device.createCommandEncoder({ label: 'our command encoder' });
     
+    for (let i=0; i<steps_per_frame; ++i) {step(encoder);}
+    encoder.copyBufferToBuffer(positionsBuffer, 0, positionsResultBuffer, 0, positionsResultBuffer.size);
+    const commandBuffer = encoder.finish();
+    device.queue.submit([commandBuffer]);
     await positionsResultBuffer.mapAsync(GPUMapMode.READ);
     const positions = new Float32Array(positionsResultBuffer.getMappedRange());
-    
     const {width, height} = ctx.canvas;
     ctx.resetTransform();
     ctx.clearRect(0, 0, width, height);
     ctx.lineWidth = 0.1;
     ctx.fillStyle = 'black';
     ctx.fillRect(0, 0, width, height);
-    for (let i=0; i<n; ++i) {
+    for (let i=0; i<params.n; ++i) {
       ctx.beginPath();
-      const x=(positions[i*3]) * width , y=(positions[i*3+1]) * height
-      ctx.arc(x, y, 6.0, 0.0, Math.PI*2);
-      ctx.fillStyle = `hsl(${colors[i]*360/m}, 100%, 50%)`;
-      ctx.fill();
-      ctx.stroke();        
+      let x=(positions[i*3]) * width , y=(positions[i*3+1]) * height
+      ctx.arc(x, y, 3.0, 0.0, Math.PI*2);
+      ctx.fillStyle = `hsl(${colors[i]*360/params.m}, 100%, 50%)`;
+      ctx.fill();       
     }
+    await positionsResultBuffer.unmap();
   }
 
   function setupCanvas(canvas) {
@@ -236,7 +248,7 @@ async function main() {
 
   const ctx = resizeCanvas();
   while (true) {
-    animate(ctx);
+    await animate(ctx);
     await new Promise(requestAnimationFrame);
   }
 }
