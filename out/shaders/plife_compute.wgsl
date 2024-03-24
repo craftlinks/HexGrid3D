@@ -1,6 +1,6 @@
 @binding(0) @group(0) var<storage, read_write> colors: array<f32>; 
-@binding(1) @group(0) var<storage, read_write> velocities: array<vec2<f32>>;
-@binding(2) @group(0) var<storage, read_write> positions: array<vec2<f32>>;
+@binding(1) @group(0) var<storage, read_write> velocities: array<vec3<f32>>;
+@binding(2) @group(0) var<storage, read_write> positions: array<vec3<f32>>;
 @binding(3) @group(0) var<storage, read> F: array<f32>;
 
 struct Params {
@@ -14,7 +14,16 @@ struct Params {
 
 @binding(0) @group(1) var<uniform> p: Params;
 
-
+fn force(r: f32, a: f32) -> f32{
+    let beta = 0.2;
+    if (r < beta) {
+      return r/beta - 1;
+    } else if (beta <= r && r <= 1) {
+      return a * (1 - Math.abs(2 * r-1-beta)/(1-beta));
+    } else {
+      return 0;
+    }   
+  }
 
 fn fast_exp(x: f32) -> f32 {
   var t = 1.0 + x/32.0;
@@ -68,3 +77,56 @@ fn update_positions(@builtin(global_invocation_id) id: vec3<u32>) {
     positions[i] += velocities[i] * p.dt;
     positions[i] = wrap(positions[i]);
 }
+
+
+
+  function updateParticles() {
+    // update velocities
+    for (let i = 0; i < n; i++) {
+      let totalForce = 0.0;
+      
+      for (let j = 0; j < n; j++) {
+        if (i == j) continue;
+        let dr = positions[j] - positions[i];
+        // if (dx > 0.5) dx -= 1;
+        // if (dx < -0.5) dx += 1;
+        // if (dy > 0.5) dy -= 1;
+        // if (dy < -0.5) dy += 1;
+        if (abs(dr.x) > 0.5) {
+          dr.x = dr.x - sign(dr.x);
+        }
+        if (abs(dr.y) > 0.5) {
+          dr.y = dr.y - sign(dr.y);
+        }
+        if (abs(dr.z) > 0.5) {
+          dr.z = dr.z - sign(dr.z);
+        }
+        
+        const r = sqrt(dx*dx + dy*dy + dz*dz);
+        if (r > 0 && r < rMax) {
+          const f = force(r / rMax, matrix[colors[i]][colors[j]]);
+          totalForceX += f * dx / r;
+          totalForceY += f * dy / r; 
+          totalForceZ += f * dz / r;
+        }
+      }
+      totalForceX *= rMax * 5;
+      totalForceY *= rMax * 5;
+      totalForceZ *= rMax * 5;
+
+      velocitiesX[i] = velocitiesX[i] * frictionFactor + totalForceX * dt;
+      velocitiesY[i] = velocitiesY[i] * frictionFactor + totalForceY * dt;
+      velocitiesZ[i] = velocitiesZ[i] * frictionFactor + totalForceZ * dt;
+    }
+
+    // update positions
+    for (let i = 0; i < n; i++) {
+      positionsX[i] += velocitiesX[i] * dt;
+      positionsY[i] += velocitiesY[i] * dt;
+      positionsZ[i] += velocitiesZ[i] * dt;
+
+      positionsX[i] = (positionsX[i] + 1) % 1;
+      positionsY[i] = (positionsY[i] + 1) % 1;
+      positionsZ[i] = (positionsZ[i] + 1) % 1;
+    }
+  }

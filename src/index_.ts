@@ -48,7 +48,6 @@ async function main() {
     usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM,
   });
 
-
   const FBuffer = device.createBuffer({
     label: 'F buffer',
     size: params.K * params.K * 4,
