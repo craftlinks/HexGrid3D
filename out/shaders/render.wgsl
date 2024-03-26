@@ -30,5 +30,5 @@ fn vs(
 
 @fragment 
 fn fs(@location(0) color: vec4f) -> @location(0) vec4f {
-    return vec4f(color.rgb * color.a, color.a);
+    return vec4f(color.rgb * color.a * 1.5, color.a);
 } 

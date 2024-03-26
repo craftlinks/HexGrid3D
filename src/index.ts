@@ -7,7 +7,8 @@ async function main() {
     frictionFactor: Math.pow(0.5, dt/0.04),
     rMax: 0.25,
     m: 6,
-    opacity: 50,  
+    opacity: 50,
+    particleSize: 2.0 
   }
 
   // GPU SETUP
@@ -294,10 +295,9 @@ async function main() {
 
   function step(encoder) {
     // make a command encoder to start encoding commands
-    const screenRatio = ctx.canvas.width / ctx.canvas.height; // TODO: use this to scale the positions in vertex shader, via uniforms!
-    const particleSize = 5.0;
+    const screenRatio = ctx.canvas.width / ctx.canvas.height;
     device.queue.writeBuffer(vertexUniformBuffer, 0, new Float32Array([
-      canvas!.width, canvas!.height, particleSize, screenRatio
+      canvas!.width, canvas!.height, params.particleSize, screenRatio
     ]));
 
     const pass_0 = encoder.beginComputePass();
