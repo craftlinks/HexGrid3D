@@ -1,6 +1,6 @@
 @binding(0) @group(0) var<storage, read_write> colors: array<f32>; 
 @binding(1) @group(0) var<storage, read_write> velocities: array<vec3<f32>>;
-@binding(2) @group(0) var<storage, read_write> positions: array<vec3<f32>>;
+@binding(2) @group(0) var<storage, read_write> positions: array<vec4<f32>>;
 @binding(3) @group(0) var<storage, read> F: array<f32>;
 
 struct Params {
@@ -14,13 +14,13 @@ struct Params {
 @binding(0) @group(1) var<uniform> p: Params;
 
 fn force(r: f32, a: f32) -> f32{
-    let beta = 0.3;
+    let beta = 0.2;
     if (r < beta) {
       return r/beta - 1;
     } else if (beta <= r && r <= 1) {
       return a * (1 - abs(2 * r-1-beta)/(1-beta));
     } else {
-      return 0;
+      return 0.0;
     }   
   }
 
@@ -33,16 +33,17 @@ fn fast_exp(x: f32) -> f32 {
 
 
 fn f_index(x: f32, y: f32) -> u32 {
-    return u32(x + p.m * y);
+    return u32(x * p.m + y);
 }
 
 @compute @workgroup_size(64)
 fn update_velocities(@builtin(global_invocation_id) id: vec3<u32>) {
     let i = id.x;
+    if (i >= arrayLength(&positions)) {return;}
     var total_force = vec3(0.0);
     for (var j: u32 = 0; j < arrayLength(&positions); j = j + 1) {
         if (i == j) {continue;}
-        var dr = positions[j] - positions[i];
+        var dr = positions[j].xyz - positions[i].xyz;
         // if (dx > 0.5) dx -= 1;
         // if (dx < -0.5) dx += 1;
         // if (dy > 0.5) dy -= 1;
@@ -64,8 +65,6 @@ fn update_velocities(@builtin(global_invocation_id) id: vec3<u32>) {
     }
     total_force *= p.r_max * 5.0;
     velocities[i] = velocities[i] * p.friction_factor + total_force * p.dt;
-    positions[i] += velocities[i] * p.dt;
-    positions[i] = (positions[i] + 1) % 1;
 }
 
 @compute @workgroup_size(64) 
@@ -73,6 +72,6 @@ fn update_positions(@builtin(global_invocation_id) id: vec3<u32>) {
     let i = id.x;
     let col = colors[i];
     let f = F[f_index(col,col)];
-    positions[i] += velocities[i] * p.dt;
-    positions[i] = (positions[i] + 1) % 1;
+    positions[i] += vec4(velocities[i] * p.dt, 1.0);
+    // positions[i] = (positions[i] + 1) % 1;
 }

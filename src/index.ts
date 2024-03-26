@@ -1,16 +1,18 @@
 
 async function main() {
-  let dt = 0.01;
+  let dt = 0.001;
   let params = {
     dt: dt,
-    n: 64 * 150,
+    n: 64 * 250,
     frictionFactor: Math.pow(0.5, dt/0.04),
-    rMax: 0.2,
-    m: 6,  
+    rMax: 0.25,
+    m: 6,
+    opacity: 50,  
   }
 
   // GPU SETUP
   const adapter = await navigator.gpu?.requestAdapter();
+  const presentationFormat = navigator?.gpu.getPreferredCanvasFormat(adapter);
   let device = await adapter?.requestDevice();
     
 
@@ -34,6 +36,7 @@ async function main() {
 
   var canvas = document.querySelector('canvas')
   const compute_shader = await fetch('./shaders/plife_compute.wgsl').then((response) => response.text());
+  const render_shader = await fetch('./shaders/render.wgsl').then((response) => response.text());
 
 
   // Simulation setup
@@ -59,14 +62,15 @@ async function main() {
   console.log(F);
 
   const colors = new Uint32Array(params.n);
-  const positions = new Float32Array(params.n * 3 );
+  const positions = new Float32Array(params.n * 4 );
   const velocities = new Float32Array(params.n * 3);
 
   for (let i = 0; i < params.n; i++) {
     colors[i] = i % params.m; // 0 - (m-1)
-    positions[3*i] = Math.random(); // -1:1
-    positions[3*i+1] = Math.random(); // -1:1
-    positions[3*i+2] = Math.random(); // -1:1
+    positions[4*i] = Math.random() * 2 - 1; // -1:1
+    positions[4*i+1] = Math.random() * 2 -1; // -1:1
+    positions[4*i+2] = Math.random() * 2 -1; // -1:1
+    positions[4*i+3] = 1.0; // w
     velocities[3*i] = 0.0;
     velocities[3*i+1] = 0.0;
     velocities[3*i+2] = 0.0;
@@ -100,13 +104,13 @@ async function main() {
 
   const positionsBuffer = device.createBuffer({
     label: 'positions buffer',
-    size: params.n * 3 * 4,
-    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+    size: params.n * 4 * 4,
+    usage:GPUBufferUsage.VERTEX | GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
   });
 
   const positionsResultBuffer = device.createBuffer({
     label: 'Position buffer result',
-    size: params.n * 3 * 4,
+    size: params.n * 4 * 4,
     usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ
   });
 
@@ -121,12 +125,51 @@ async function main() {
   }
   updateParams();
 
+  // BUFFERS FOR RENDERING
+
+  const vertexBuffer = device.createBuffer({
+    size: 32,
+    usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
+  });
+  device.queue.writeBuffer(vertexBuffer, 0, new Float32Array([
+    -1.0, -1.0,
+    1.0, -1.0,
+    -1.0, 1.0,
+    1.0, 1.0
+  ]));
+
+  const RGBColorBufferData = new Uint8Array(4 * params.n);
+  for (let i = 0; i < params.n; i += 1) {
+    const rgbValues = HSLToRGB(360 * 1 / params.m * colors[i], 100, 50)
+    RGBColorBufferData[i*4] = rgbValues[0];
+    RGBColorBufferData[i*4 + 1] = rgbValues[1];
+    RGBColorBufferData[i*4 + 2] = rgbValues[2];
+    RGBColorBufferData[i*4 + 3] = Math.floor(params.opacity / 100 * 255);
+  }
+
+  const RGBColorBuffer = device.createBuffer({
+    size: RGBColorBufferData.byteLength,
+    usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+  });
+  device.queue.writeBuffer(RGBColorBuffer, 0, RGBColorBufferData);
+
+  const vertexUniformBuffer = device.createBuffer({
+    size: 16,
+    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+  });
+
   // SHADERS
 
   const computeShader = device.createShaderModule({
     label: 'Particle Life Compute Shader',
     code: compute_shader,
   });
+
+  const renderShaderModule = device.createShaderModule({
+    label: 'render shader',
+    code: render_shader,
+  });
+
 
   // PIPELINES
 
@@ -148,6 +191,63 @@ async function main() {
     },
   });
 
+  const renderPipeline = device.createRenderPipeline({
+    layout: "auto",
+    vertex: {
+      module: renderShaderModule,
+      entryPoint: "vs",
+      buffers: [
+        {
+          arrayStride: 8,
+          attributes: [{
+            shaderLocation: 0,
+            format: "float32x2",
+            offset: 0
+          }]
+        },
+        {
+          arrayStride: 4,
+          stepMode: "instance",
+          attributes: [{
+            shaderLocation: 1,
+            format: "unorm8x4",
+            offset: 0
+          }]
+        },
+        {
+          arrayStride: 16,
+          stepMode: "instance",
+          attributes: [{
+            shaderLocation: 2,
+            format: "float32x4",
+            offset: 0
+          }]
+        }
+      ]
+    },
+    fragment: {
+      module: renderShaderModule,
+      entryPoint: "fs",
+      targets: [{
+        format: presentationFormat,
+        blend: {
+          color: {
+            srcFactor: "one",
+            dstFactor: "one-minus-src-alpha"
+          },
+          alpha: {
+            srcFactor: "one",
+            dstFactor: "one-minus-src-alpha"
+          }
+        }
+      }]
+    },
+    primitive: {
+      topology: "triangle-strip",
+      stripIndexFormat: "uint32"
+    }
+  });
+
   // BIND GROUPS
 
   const computeVelocitiesBindGroup = device.createBindGroup({
@@ -167,11 +267,38 @@ async function main() {
     ],
   });
 
+  const vertexUniformBindGroup = device.createBindGroup({
+    layout: renderPipeline.getBindGroupLayout(0),
+    entries: [{
+      binding: 0,
+      resource: {
+        buffer: vertexUniformBuffer
+      }
+    }]
+  });
+
+  // Render pass descriptor
+  
+  const ctx = resizeCanvas();
+  
+  const renderPassDescriptor = {
+    colorAttachments: [{
+      view: ctx!.getCurrentTexture().createView(),
+      loadOp: "clear",
+      storeOp: "store",
+      clearValue: [0, 0, 0, 1]
+    }]
+  };
+
   // GPU SIMULATION
 
   function step(encoder) {
     // make a command encoder to start encoding commands
-    
+    const screenRatio = ctx.canvas.width / ctx.canvas.height; // TODO: use this to scale the positions in vertex shader, via uniforms!
+    const particleSize = 5.0;
+    device.queue.writeBuffer(vertexUniformBuffer, 0, new Float32Array([
+      canvas!.width, canvas!.height, particleSize, screenRatio
+    ]));
 
     const pass_0 = encoder.beginComputePass();
     // make a compute pass for calculating the new velocities
@@ -183,14 +310,24 @@ async function main() {
 
 
     // make a compute pass for updating the positions
-    // const pass_1 = encoder.beginComputePass();
-    // pass_1.setPipeline(updatePositionsPipeline);
-    // pass_1.setBindGroup(0, computeVelocitiesBindGroup);
-    // pass_1.setBindGroup(1, paramsBindGroup);
-    // pass_1.dispatchWorkgroups(params.n / 64);
-    // pass_1.end();
-    
+    const pass_1 = encoder.beginComputePass();
+    pass_1.setPipeline(updatePositionsPipeline);
+    pass_1.setBindGroup(0, computeVelocitiesBindGroup);
+    pass_1.setBindGroup(1, paramsBindGroup);
+    pass_1.dispatchWorkgroups(params.n / 64);
+    pass_1.end();
 
+    // make a render pass for rendering the particles
+    renderPassDescriptor.colorAttachments[0].view = ctx!.getCurrentTexture().createView();
+    const renderPass = encoder.beginRenderPass(renderPassDescriptor);
+    renderPass.setPipeline(renderPipeline);
+    renderPass.setVertexBuffer(0, vertexBuffer);
+    renderPass.setVertexBuffer(1, RGBColorBuffer);
+    renderPass.setVertexBuffer(2, positionsBuffer);
+    renderPass.setBindGroup(0, vertexUniformBindGroup);
+
+    renderPass.draw(4, params.n);
+    renderPass.end();
     
   }
 
@@ -200,25 +337,9 @@ async function main() {
     const encoder = device.createCommandEncoder({ label: 'our command encoder' });
     
     for (let i=0; i<steps_per_frame; ++i) {step(encoder);}
-    encoder.copyBufferToBuffer(positionsBuffer, 0, positionsResultBuffer, 0, positionsResultBuffer.size);
     const commandBuffer = encoder.finish();
     device.queue.submit([commandBuffer]);
-    await positionsResultBuffer.mapAsync(GPUMapMode.READ);
-    const positions = new Float32Array(positionsResultBuffer.getMappedRange());
-    const {width, height} = ctx.canvas;
-    ctx.resetTransform();
-    ctx.clearRect(0, 0, width, height);
-    ctx.lineWidth = 0.1;
-    ctx.fillStyle = 'black';
-    ctx.fillRect(0, 0, width, height);
-    for (let i=0; i<params.n; ++i) {
-      ctx.beginPath();
-      let x=(positions[i*3]) * width , y=(positions[i*3+1]) * height
-      ctx.arc(x, y, 3.0, 0.0, Math.PI*2);
-      ctx.fillStyle = `hsl(${colors[i]*360/params.m}, 100%, 50%)`;
-      ctx.fill();       
-    }
-    await positionsResultBuffer.unmap();
+  
   }
 
   function setupCanvas(canvas) {
@@ -230,11 +351,14 @@ async function main() {
     // size * the device pixel ratio.
     canvas.width = rect.width * dpr;
     canvas.height = rect.height * dpr;
-    let ctx = canvas.getContext('2d');
+    let ctx = canvas.getContext('webgpu');
     // Scale all drawing operations by the dpr, so you
     // don't have to worry about the scaling in your drawing code.
-    ctx.scale(dpr, dpr);
-
+    // ctx.scale(dpr, dpr);
+    (ctx! as any).configure({
+      device,
+      format: presentationFormat
+    });
     return ctx;
 
     // Now you can just draw at the "normal" size.
@@ -246,7 +370,6 @@ async function main() {
     return ctx;
   }
 
-  const ctx = resizeCanvas();
   while (true) {
     await animate(ctx);
     await new Promise(requestAnimationFrame);
@@ -254,3 +377,47 @@ async function main() {
 }
 
 main();
+
+
+function HSLToRGB(h: number, s: number, l: number) {
+  s /= 100;
+  l /= 100;
+
+  let c = (1 - Math.abs(2 * l - 1)) * s,
+    x = c * (1 - Math.abs(((h / 60) % 2) - 1)),
+    m = l - c / 2,
+    r = 0,
+    g = 0,
+    b = 0;
+
+  if (0 <= h && h < 60) {
+    r = c;
+    g = x;
+    b = 0;
+  } else if (60 <= h && h < 120) {
+    r = x;
+    g = c;
+    b = 0;
+  } else if (120 <= h && h < 180) {
+    r = 0;
+    g = c;
+    b = x;
+  } else if (180 <= h && h < 240) {
+    r = 0;
+    g = x;
+    b = c;
+  } else if (240 <= h && h < 300) {
+    r = x;
+    g = 0;
+    b = c;
+  } else if (300 <= h && h < 360) {
+    r = c;
+    g = 0;
+    b = x;
+  }
+  r = Math.round((r + m) * 255);
+  g = Math.round((g + m) * 255);
+  b = Math.round((b + m) * 255);
+
+  return [r, g, b];
+}
