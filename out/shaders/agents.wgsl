@@ -62,16 +62,17 @@ fn index(p: vec2f) -> i32 {
   return i32(p.x) + i32(p.y) * i32(rez);
 }
 
-fn binIndex(position: vec2f) -> u32 {
+fn binIndex(position: vec3f) -> u32 {
   let x = u32(floor((position.x ) / binSidelength));
   let y = u32(floor((position.y) / binSidelength));
-  return x + y * binsPerSide;
+  let z = u32(floor((position.z) / binSidelength));
+  return x + y * binsPerSide + z * binsPerSide * binsPerSide;
 }
 
 @compute @workgroup_size(256)
 fn writeBins(@builtin(global_invocation_id) id : vec3u) {
   var p = positions[id.x];
-  let bin = binIndex(p.xy);
+  let bin = binIndex(p.xyz);
   let offset = atomicAdd(&binCountsAtomic[bin], 1u);
   if(offset < binCapacity) {
     bins[bin * binCapacity + offset] = id.x;
@@ -81,7 +82,7 @@ fn writeBins(@builtin(global_invocation_id) id : vec3u) {
 @compute @workgroup_size(256)
 fn reset(@builtin(global_invocation_id) id : vec3u) {
   let seed = f32(id.x)/f32(count);
-  var p = vec3(r(seed), r(seed + 0.1), 0.0);
+  var p = vec3(r(seed), r(seed + 0.1), r(seed + 0.2));
   p *= rez;
   positions[id.x] = p;
 }
@@ -101,38 +102,43 @@ fn force(r: f32, a: f32) -> f32 {
 @compute @workgroup_size(256)
 fn simulate(@builtin(global_invocation_id) id : vec3u) {
   let p = positions[id.x];
-  var totalForce = vec2f(0.0);
+  var totalForce = vec3f(0.0);
   let binX = i32(floor((p.x) / binSidelength));
   let binY = i32(floor((p.y) / binSidelength));
+  let binZ = i32(floor((p.z) / binSidelength));
   for(var x=-1; x <=1; x++) {
     for(var y=-1; y <=1; y++) {
+      for(var z=-1; z <=1; z++) {
 
-      // todo: edges
-      let bin = (binX + x) + (binY + y) * i32(binsPerSide);
-      let count = atomicLoad(&binCountsAtomic[bin]);
-      let start = u32(bin) * binCapacity;
-      let binCount = min(binCapacity, count);
-      
-      for(var i=0u; i<binCount; i++) {
-        let oid = bins[start + i];
-        if(oid == id.x) { continue; }
-        var op = positions[oid];
-        var distance = positions[i] - positions[id.x];
-        if (distance.x > rez/2.0) { distance.x -= rez; }
-        if (distance.y > rez/2.0) { distance.y -= rez; }
-        if (distance.x < -rez/2.0) { distance.x += rez; }
-        if (distance.y < -rez/2.0) { distance.y += rez; }
+        // todo: edges
+        let bin = (binX + x) + (binY + y) * i32(binsPerSide) + (binZ + z) * i32(binsPerSide) * i32(binsPerSide);
+        let count = atomicLoad(&binCountsAtomic[bin]);
+        let start = u32(bin) * binCapacity;
+        let binCount = min(binCapacity, count);
         
-        let r = sqrt(distance.x*distance.x + distance.y*distance.y);
-        let repf = 24.0;
-        if (r > 0 && r < rMax) {
-          if (r > repf) {
-            let a = matrix[colors[id.x] + m * colors[i]];
-            
-            totalForce += a * max(50.0 - abs(r - (rMax/2)),0.0) * distance.xy / r;
-          } else {
-            let f =  50 * (r/repf - 1.0);
-            totalForce += f * distance.xy / r;
+        for(var i=0u; i<binCount; i++) {
+          let oid = bins[start + i];
+          if(oid == id.x) { continue; }
+          var op = positions[oid];
+          var distance = positions[i] - positions[id.x];
+          if (distance.x > rez/2.0) { distance.x -= rez; }
+          if (distance.y > rez/2.0) { distance.y -= rez; }
+          if (distance.x < -rez/2.0) { distance.x += rez; }
+          if (distance.y < -rez/2.0) { distance.y += rez; }
+          if (distance.z > rez/2.0) { distance.z -= rez; }
+          if (distance.z < -rez/2.0) { distance.z += rez; }
+          
+          let r = sqrt(distance.x*distance.x + distance.y*distance.y + distance.z*distance.z);
+          let repf = 96.0;
+          if (r > 0 && r < rMax) {
+            if (r > repf) {
+              let a = matrix[colors[id.x] + m * colors[i]];
+              
+              totalForce += a * max(100.0 - abs(r - (rMax/2)),0.0) * distance / r;
+            } else {
+              let f =  100 * (r/repf - 1.0);
+              totalForce += f * distance / r;
+            }
           }
         }
       }
@@ -140,7 +146,7 @@ fn simulate(@builtin(global_invocation_id) id : vec3u) {
   }
   // totalForce +=  1.0; ;
 
-  velocities[id.x] = vec3f(velocities[id.x].xy * 0.4 + totalForce * dt, 0.0);
+  velocities[id.x] = velocities[id.x] * 0.4 + totalForce * dt;
 
 
   // Write
@@ -154,5 +160,5 @@ fn simulate(@builtin(global_invocation_id) id : vec3u) {
 
 @compute @workgroup_size(256)
 fn fade(@builtin(global_invocation_id) id : vec3u) {
-  pixels[id.x] *= 0.95;
+  pixels[id.x] *= 0.7;
 }

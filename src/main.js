@@ -20,12 +20,12 @@ const uniforms = {
   time: 0,
   dt: 0.02,
   frictionFactor: 0,
-  rMax: 128,
+  rMax: 256,
   m:12,
   matrix: [],
-  count: 2 * 100000,
-  binSidelength: 312,
-  binCapacity: 900,
+  count: 15 * 10000,
+  binSidelength: 400,
+  binCapacity: 750,
 };
 
 function makeRandomMatrix() {
@@ -47,7 +47,7 @@ uniforms.matrix = makeRandomMatrix();
 
 // CPU-only settings
 const settings = {
-  binCount: uniforms.binsPerSide ** 2,
+  binCount: uniforms.binsPerSide ** 3,
   scale:
     (0.95 * Math.min(window.innerHeight, window.innerWidth)) / uniforms.rez,
   pixelWorkgroups: Math.ceil(uniforms.rez ** 2 / 256),
