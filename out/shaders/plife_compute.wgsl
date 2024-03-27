@@ -14,13 +14,13 @@ struct Params {
 @binding(0) @group(1) var<uniform> p: Params;
 
 fn force(r: f32, a: f32) -> f32{
-    let beta = 0.2;
+    let beta = 0.1;
     if (r < beta) {
-      return r/beta - 1;
-    } else if (beta <= r && r <= 1) {
-      return a * (1 - abs(2 * r-1-beta)/(1-beta));
+      return  r/beta - 5.0;
+    } else if (beta < r && r < 1.0) {
+      return a * (1 - abs(2 * r-1-beta)/(1-beta) * 2) ;
     } else {
-      return 0.0;
+      return -10000.0;
     }   
   }
 
@@ -33,7 +33,7 @@ fn fast_exp(x: f32) -> f32 {
 
 
 fn f_index(x: f32, y: f32) -> u32 {
-    return u32(x * p.m + y);
+    return u32(x + p.m * y);
 }
 
 @compute @workgroup_size(64)
@@ -43,28 +43,38 @@ fn update_velocities(@builtin(global_invocation_id) id: vec3<u32>) {
     var total_force = vec3(0.0);
     for (var j: u32 = 0; j < arrayLength(&positions); j = j + 1) {
         if (i == j) {continue;}
-        var dr = positions[j].xyz - positions[i].xyz;
+        var diff = positions[j].xyz - positions[i].xyz;
+
         // if (dx > 0.5) dx -= 1;
         // if (dx < -0.5) dx += 1;
         // if (dy > 0.5) dy -= 1;
         // if (dy < -0.5) dy += 1;
-        if (abs(dr.x) > 0.5) {
-          dr.x = dr.x - sign(dr.x);
-        }
-        if (abs(dr.y) > 0.5) {
-          dr.y = dr.y - sign(dr.y);
-        }
-        if (abs(dr.z) > 0.5) {
-          dr.z = dr.z - sign(dr.z);
-        }
-        let r = sqrt(dr.x*dr.x + dr.y*dr.y + dr.z*dr.z);
-        if (r > 0 && r < p.r_max) {
-          let f = force(r / p.r_max, F[f_index(colors[i],colors[j])]);
-          total_force += f * dr / r;
+        // if (abs(diff.x) > 0.5) {
+        //   diff.x = diff.x - sign(diff.x);
+        // }
+        // if (abs(diff.y) > 0.5) {
+        //   diff.y = diff.y - sign(diff.y);
+        // }
+        // if (abs(diff.z) > 0.5) {
+        //   diff.z = diff.z - sign(diff.z);
+        // }
+        let dist = sqrt(diff.x*diff.x + diff.y*diff.y + diff.z*diff.z);
+        if ( dist > 0 && dist < p.r_max) {
+          let forceV = F[f_index(colors[i],colors[j])];
+          var f = force(dist, forceV);
+
+          // if (f > 0.0) {
+          //   f = f * fast_exp(-dist);
+          // }
+          // if (f < 0.0) {
+          //   f = f * fast_exp(dist);
+          // }
+          total_force += f * diff / dist;
+          total_force = total_force * p.r_max;
         }
     }
-    total_force *= p.r_max * 5.0;
-    velocities[i] = velocities[i] * p.friction_factor + total_force * p.dt;
+    velocities[i] = velocities[i] + total_force * p.dt *5;
+    velocities[i] = velocities[i] * p.friction_factor;
 }
 
 @compute @workgroup_size(64) 
@@ -72,6 +82,5 @@ fn update_positions(@builtin(global_invocation_id) id: vec3<u32>) {
     let i = id.x;
     let col = colors[i];
     let f = F[f_index(col,col)];
-    positions[i] += vec4(velocities[i] * p.dt, 1.0);
-    // positions[i] = (positions[i] + 1) % 1;
+    positions[i] += vec4(velocities[i], 1.0) * p.dt;
 }

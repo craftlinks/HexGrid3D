@@ -1,14 +1,14 @@
 
 async function main() {
-  let dt = 0.001;
+  let dt = 0.02;
   let params = {
     dt: dt,
     n: 64 * 250,
-    frictionFactor: Math.pow(0.5, dt/0.04),
-    rMax: 0.25,
-    m: 6,
-    opacity: 50,
-    particleSize: 2.0 
+    frictionFactor: Math.pow(0.5, dt/0.05),
+    rMax: 0.4,
+    m: 12,
+    opacity: 100,
+    particleSize: 3.5 
   }
 
   // GPU SETUP
@@ -69,9 +69,9 @@ async function main() {
   for (let i = 0; i < params.n; i++) {
     colors[i] = i % params.m; // 0 - (m-1)
     positions[4*i] = Math.random() * 2 - 1; // -1:1
-    positions[4*i+1] = Math.random() * 2 -1; // -1:1
-    positions[4*i+2] = Math.random() * 2 -1; // -1:1
-    positions[4*i+3] = 1.0; // w
+    positions[4*i+1] = Math.random() * 2 - 1; // -1:1
+    positions[4*i+2] = Math.random() * 2 - 1; // -1:1
+    positions[4*i+3] = Math.random() * 2 - 1; // w
     velocities[3*i] = 0.0;
     velocities[3*i+1] = 0.0;
     velocities[3*i+2] = 0.0;
