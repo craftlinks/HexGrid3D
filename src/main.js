@@ -13,19 +13,17 @@ const sizes = {
   vec4: 16,
 };
 
-
-
 const uniforms = {
-  rez: 1024 ,
+  rez: 2048 ,
   time: 0,
-  dt: 0.02,
+  dt: 0.08,
   frictionFactor: 0,
-  rMax: 256,
+  rMax: 320,
   m:12,
   matrix: [],
-  count: 15 * 10000,
-  binSidelength: 400,
-  binCapacity: 750,
+  count: 200 * 10000,
+  binSidelength: 512,
+  binCapacity: 3200,
 };
 
 function makeRandomMatrix() {
